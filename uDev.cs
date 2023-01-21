@@ -11,9 +11,10 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
 
     public uDev(DalamudPluginInterface pluginInterface) : base(pluginInterface)
     {
+
     }
 
-    protected override void ToggleConfig() => PluginUI.isVisible ^= true;
+    protected override void ToggleConfig() => PluginUI.IsVisible ^= true;
 
     [PluginCommand("/udev", HelpMessage = "Opens / closes the config.")]
     private void ToggleConfig(string command, string argument) => ToggleConfig();
