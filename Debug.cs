@@ -28,7 +28,7 @@ public static class Debug
         do
         {
             if (VirtualQuery(address, out var mbi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
-                break;
+                return false;
 
             if ((mbi.State & 0x1000) == 0 || (mbi.Protect & 0x101) != 0 || (mbi.Protect & 0xEE) == 0)
                 return false;
@@ -38,4 +38,27 @@ public static class Debug
 
         return true;
     }
+
+    public static unsafe nint GetMaxReadableMemory(nint address, long size)
+    {
+        var max = nint.Zero;
+        if (address == 0 || size == 0)
+            return max;
+
+        var endAddress = address + size - 1;
+        do
+        {
+            if (VirtualQuery(address, out var mbi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
+                break;
+
+            if ((mbi.State & 0x1000) == 0 || (mbi.Protect & 0x101) != 0 || (mbi.Protect & 0xEE) == 0)
+                break;
+
+            address = mbi.BaseAddress + mbi.RegionSize;
+            max = address - 1;
+        } while (address <= endAddress);
+
+        return max;
+    }
+
 }

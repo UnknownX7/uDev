@@ -1,16 +1,11 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Dalamud.Interface;
-using Dalamud.Utility.Signatures;
-using FFXIVClientStructs.Interop;
 using ImGuiNET;
-using Newtonsoft.Json.Linq;
 using static Hypostasis.Util;
 
 namespace uDev;
@@ -24,8 +19,8 @@ public static unsafe class PluginUI
     {
         public object Value { get; }
         public Type Type { get; }
-        public Type BoxedType { get; }
         public bool IsPointer { get; }
+        public Type BoxedType { get; }
         public bool CanReadMemory { get; }
         public object Struct { get; }
         public bool ShouldDrawStruct { get; }
@@ -81,16 +76,33 @@ public static unsafe class PluginUI
                     break;
             }
 
-            BoxedType = Type?.GetElementType();
             IsPointer = Type?.IsPointer ?? false;
-            CanReadMemory = IsPointer && BoxedType != null && Debug.CanReadMemory(selectedSigInfo.address, Marshal.SizeOf(BoxedType));
-            Struct = CanReadMemory ? Marshal.PtrToStructure(selectedSigInfo.address, BoxedType!) : Value;
+            BoxedType = Type?.GetElementType();
+
+            if (IsPointer && BoxedType != null)
+            {
+                var address = (nint)Pointer.Unbox((Pointer)Value!);
+                CanReadMemory = Debug.CanReadMemory(address, Marshal.SizeOf(BoxedType));
+
+                // Thanks void and void* and void** and so on...
+                try
+                {
+                    Struct = Marshal.PtrToStructure(address, BoxedType);
+                }
+                catch { }
+            }
+            else
+            {
+                Struct = Value;
+            }
+
             ShouldDrawStruct = Struct?.GetType() is { IsValueType: true, IsEnum: false } && Struct is not IComparable;
         }
     }
 
     private static bool isVisible = true;
     private static SigScannerWrapper.SigInfo selectedSigInfo = null;
+    private static readonly List<nint> displayedMemoryViews = new();
 
     public static bool IsVisible
     {
@@ -100,9 +112,12 @@ public static unsafe class PluginUI
 
     public static void Draw()
     {
+        for (int i = 0; i < displayedMemoryViews.Count; i++)
+            DrawMemoryDetailsWindow(displayedMemoryViews[i]);
+
         if (!isVisible) return;
 
-        ImGui.SetNextWindowSizeConstraints(new Vector2(1000, 500) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+        ImGui.SetNextWindowSizeConstraints(ImGuiHelpers.ScaledVector2(1000, 650), new Vector2(9999));
         ImGui.Begin("uDev Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         ImGuiEx.AddDonationHeader(2);
 
@@ -170,7 +185,7 @@ public static unsafe class PluginUI
         }
 
         ImGui.TextUnformatted($"Signature: {selectedSigInfo.signature}");
-        ImGui.TextUnformatted($"Address:");
+        ImGui.TextUnformatted("Address:");
         ImGui.SameLine();
         ImGuiEx.TextCopyable($"{selectedSigInfo.address:X}");
         ImGui.TextUnformatted($"Type: {selectedSigInfo.sigType}");
@@ -236,10 +251,16 @@ public static unsafe class PluginUI
             var memberDetails = new MemberDetails(memberInfo, s);
 
             var open = false;
+            var indent = 0;
             if (memberDetails.ShouldDrawStruct)
             {
                 open = ImGui.TreeNodeEx($"##{memberInfo.Name}", ImGuiTreeNodeFlags.AllowItemOverlap | ImGuiTreeNodeFlags.SpanAvailWidth);
                 ImGui.SameLine();
+            }
+            else
+            {
+                indent = (int)(ImGui.GetFontSize() + ImGui.GetStyle().ItemSpacing.X);
+                ImGui.Indent(indent);
             }
 
             var offsetAttribute = memberInfo.GetCustomAttribute<FieldOffsetAttribute>();
@@ -258,6 +279,9 @@ public static unsafe class PluginUI
             if (memberDetails.Type == typeof(long))
                 ImGuiEx.SetItemTooltip($"{memberDetails.Value:X}");
 
+            if (indent > 0)
+                ImGui.Unindent(indent);
+
             if (!open) continue;
             DrawStructureDetails(memberDetails.Struct, memberDetails.IsArray);
             ImGui.TreePop();
@@ -269,40 +293,82 @@ public static unsafe class PluginUI
         ImGui.PushFont(UiBuilder.MonoFont);
 
         const int columns = 16;
-        for (int i = 0; i < length; i += columns)
+
+        var clipper = new ImGuiListClipperPtr(ImGuiNative.ImGuiListClipper_ImGuiListClipper());
+        clipper.Begin((int)MathF.Ceiling(length / (float)columns), ImGui.GetFontSize() + ImGui.GetStyle().ItemSpacing.Y);
+
+        var maxReadableMemory = Debug.GetMaxReadableMemory(address, length);
+        while (clipper.Step())
         {
-            ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1), (address + i).ToString("X"));
-            ImGui.SameLine();
-
-            var str = string.Empty;
-            for (int j = 0; j < columns; j++)
+            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
             {
-                if (i + j >= length) break;
-                var ptr = (byte*)address + i + j;
-                var b = *ptr;
-                ImGui.TextUnformatted(b.ToString("X2"));
-                ImGuiEx.SetItemTooltip(GetPointerTooltip(ptr, length - i - j));
+                var i = row * columns;
+                ImGuiEx.TextCopyable(new Vector4(0.5f, 0.5f, 0.5f, 1), (address + i).ToString("X"));
                 ImGui.SameLine();
 
-                if (b > 31)
-                    str += (char)b;
-                else
-                    str += ".";
+                var str = string.Empty;
+                for (int j = 0; j < columns; j++)
+                {
+                    var pos = i + j;
+                    if (pos >= length) break;
+                    var ptr = (byte*)address + pos;
 
-                if (j == columns - 1 || (j + 1) % 8 != 0) continue;
-                ImGui.TextUnformatted("|");
-                ImGui.SameLine();
+                    if (maxReadableMemory > nint.Zero && (nint)ptr > nint.Zero && (nint)ptr <= maxReadableMemory)
+                    {
+                        var b = *ptr;
+                        var maxLength = maxReadableMemory - address - pos;
+                        ImGui.TextUnformatted(b.ToString("X2"));
+
+                        if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
+                        {
+                            var a = *(nint*)ptr;
+                            if (Debug.CanReadMemory(a, 1) && !displayedMemoryViews.Contains(a))
+                                displayedMemoryViews.Add(a);
+                        }
+
+                        if (ImGui.IsItemHovered())
+                            ImGui.SetTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+
+                        if (b > 31)
+                            str += (char)b;
+                        else
+                            str += ".";
+                    }
+                    else
+                    {
+                        ImGui.TextUnformatted("??");
+                        str += " ";
+                    }
+
+                    ImGui.SameLine();
+
+
+                    if (j == columns - 1 || (j + 1) % 8 != 0) continue;
+                    ImGui.TextUnformatted("|");
+                    ImGui.SameLine();
+                }
+
+                ImGui.TextUnformatted($" {str}");
             }
-
-            ImGui.TextUnformatted($" {str}");
         }
 
         ImGui.PopFont();
     }
 
+    private static void DrawMemoryDetailsWindow(nint address)
+    {
+        var visible = true;
+        ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(700, 500));
+        ImGui.Begin($"Memory Details {address:X}", ref visible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
+        DrawMemoryDetails(address, 0x1000);
+        ImGui.End();
+        if (!visible)
+            displayedMemoryViews.Remove(address);
+    }
+
     private static string GetPointerTooltip(byte* ptr, long maxLength)
     {
-        var tooltip = $"Byte: {*ptr} | {*(sbyte*)ptr}";
+        var tooltip = $"Byte: {*(sbyte*)ptr} | {*ptr}";
         if (maxLength < 2) return tooltip;
         tooltip += $"\nShort: {*(short*)ptr} | {*(ushort*)ptr}";
         if (maxLength < 4) return tooltip;
