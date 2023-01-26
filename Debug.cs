@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace uDev;
 
@@ -24,7 +26,7 @@ public static class Debug
         if (address == 0 || size == 0)
             return false;
 
-        var endAddress = address + size - 1;
+        var endAddress = address + size;
         do
         {
             if (VirtualQuery(address, out var mbi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
@@ -34,7 +36,7 @@ public static class Debug
                 return false;
 
             address = mbi.BaseAddress + mbi.RegionSize;
-        } while (address <= endAddress);
+        } while (address < endAddress);
 
         return true;
     }
@@ -45,7 +47,7 @@ public static class Debug
         if (address == 0 || size == 0)
             return max;
 
-        var endAddress = address + size - 1;
+        var endAddress = address + size;
         do
         {
             if (VirtualQuery(address, out var mbi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
@@ -56,9 +58,36 @@ public static class Debug
 
             address = mbi.BaseAddress + mbi.RegionSize;
             max = address - 1;
-        } while (address <= endAddress);
+        } while (address < endAddress);
 
         return max;
     }
 
+    public static unsafe HashSet<nint> GetReadableMemory(nint address, long size)
+    {
+        var set = new HashSet<nint>();
+        if (address == 0 || size == 0)
+            return set;
+
+        var endAddress = address + size;
+        do
+        {
+            if (VirtualQuery(address, out var mbi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
+                break;
+
+            if ((mbi.State & 0x1000) == 0 || (mbi.Protect & 0x101) != 0 || (mbi.Protect & 0xEE) == 0)
+            {
+                address = mbi.BaseAddress + mbi.RegionSize;
+            }
+            else
+            {
+                var regionMax = (nint)Math.Min(mbi.BaseAddress + mbi.RegionSize, endAddress);
+                for (nint i = address; i < regionMax; i++)
+                    set.Add(i);
+                address = regionMax;
+            }
+        } while (address < endAddress);
+
+        return set;
+    }
 }

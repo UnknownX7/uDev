@@ -100,9 +100,20 @@ public static unsafe class PluginUI
         }
     }
 
+    private class MemoryView
+    {
+        public nint Address { get; set; }
+        public long Size { get; set; }
+        public MemoryView(nint address, long size)
+        {
+            Address = address;
+            Size = size;
+        }
+    }
+
+    private static readonly List<MemoryView> displayedMemoryViews = new();
     private static bool isVisible = true;
     private static SigScannerWrapper.SigInfo selectedSigInfo = null;
-    private static readonly List<nint> displayedMemoryViews = new();
 
     public static bool IsVisible
     {
@@ -118,7 +129,7 @@ public static unsafe class PluginUI
         if (!isVisible) return;
 
         ImGui.SetNextWindowSizeConstraints(ImGuiHelpers.ScaledVector2(1000, 650), new Vector2(9999));
-        ImGui.Begin("uDev Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+        ImGui.Begin("uDev", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         ImGuiEx.AddDonationHeader(2);
 
         ImGui.BeginChild("PluginList", new Vector2(150 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
@@ -178,7 +189,7 @@ public static unsafe class PluginUI
 
     private static void DrawSelectedSigInfo()
     {
-        if (ImGui.Button("<"))
+        if (ImGuiEx.FontButton(FontAwesomeIcon.ArrowLeft.ToIconString(), UiBuilder.IconFont))
         {
             selectedSigInfo = null;
             return;
@@ -297,7 +308,7 @@ public static unsafe class PluginUI
         var clipper = new ImGuiListClipperPtr(ImGuiNative.ImGuiListClipper_ImGuiListClipper());
         clipper.Begin((int)MathF.Ceiling(length / (float)columns), ImGui.GetFontSize() + ImGui.GetStyle().ItemSpacing.Y);
 
-        var maxReadableMemory = Debug.GetMaxReadableMemory(address, length);
+        var readable = Debug.GetReadableMemory(address, length);
         while (clipper.Step())
         {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
@@ -311,19 +322,29 @@ public static unsafe class PluginUI
                 {
                     var pos = i + j;
                     if (pos >= length) break;
-                    var ptr = (byte*)address + pos;
+                    var ptrAddr = address + pos;
+                    var ptr = (byte*)ptrAddr;
 
-                    if (maxReadableMemory > nint.Zero && (nint)ptr > nint.Zero && (nint)ptr <= maxReadableMemory)
+                    if (readable.Contains(ptrAddr))
                     {
                         var b = *ptr;
-                        var maxLength = maxReadableMemory - address - pos;
+
+                        // It works I guess...
+                        var maxLength = ptrAddr switch
+                        {
+                            _ when readable.Contains(ptrAddr + 8) => 8,
+                            _ when readable.Contains(ptrAddr + 4) => 4,
+                            _ when readable.Contains(ptrAddr + 2) => 2,
+                            _ => 1
+                        };
+
                         ImGui.TextUnformatted(b.ToString("X2"));
 
                         if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                         {
                             var a = *(nint*)ptr;
-                            if (Debug.CanReadMemory(a, 1) && !displayedMemoryViews.Contains(a))
-                                displayedMemoryViews.Add(a);
+                            if (Debug.CanReadMemory(a, 1) && displayedMemoryViews.All(v => v.Address != a))
+                                displayedMemoryViews.Add(new MemoryView(a, 0x200));
                         }
 
                         if (ImGui.IsItemHovered())
@@ -355,15 +376,17 @@ public static unsafe class PluginUI
         ImGui.PopFont();
     }
 
-    private static void DrawMemoryDetailsWindow(nint address)
+    private static void DrawMemoryDetailsWindow(MemoryView view)
     {
         var visible = true;
         ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(700, 500));
-        ImGui.Begin($"Memory Details {address:X}", ref visible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
-        DrawMemoryDetails(address, 0x1000);
+        ImGui.Begin($"Memory Details {view.Address:X}", ref visible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
+        DrawMemoryDetails(view.Address, view.Size);
+        if (ImGui.GetScrollY() == ImGui.GetScrollMaxY())
+            view.Size += 0x200;
         ImGui.End();
         if (!visible)
-            displayedMemoryViews.Remove(address);
+            displayedMemoryViews.Remove(view);
     }
 
     private static string GetPointerTooltip(byte* ptr, long maxLength)
