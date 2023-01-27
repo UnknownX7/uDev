@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Dalamud.Interface;
+using Dalamud.Plugin.Ipc;
 using ImGuiNET;
 using static Hypostasis.Util;
 
@@ -14,6 +15,35 @@ public static unsafe class PluginUI
 {
     private const BindingFlags defaultBindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private const MemberTypes whitelistedMemberTypes = MemberTypes.Field | MemberTypes.Property;
+
+    private class PluginIPC //: IDisposable
+    {
+        public string Name { get; }
+        private ICallGateSubscriber<List<SigScannerWrapper.SigInfo>> GetSigInfosSubscriber { get; }
+        private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
+        public List<SigScannerWrapper.SigInfo> SigInfos
+        {
+            get
+            {
+                var sigInfos = GetSigInfosSubscriber.InvokeFunc();
+                var memberInfos = GetMemberInfosSubscriber.InvokeFunc();
+                for (int i = 0; i < sigInfos.Count; i++)
+                {
+                    if (!memberInfos.TryGetValue(i, out var memberInfo)) continue;
+                    sigInfos[i].assignableInfo = new(memberInfo.Item1, memberInfo.Item2);
+                }
+                return sigInfos;
+            }
+        }
+
+        public PluginIPC(string name)
+        {
+            Name = name;
+            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SigInfo>>($"{name}.Hypostasis.GetSigInfos");
+            GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.Hypostasis.GetMemberInfos");
+        }
+        //public void Dispose() { }
+    }
 
     private class MemberDetails
     {
@@ -114,6 +144,12 @@ public static unsafe class PluginUI
     private static readonly List<MemoryView> displayedMemoryViews = new();
     private static bool isVisible = true;
     private static SigScannerWrapper.SigInfo selectedSigInfo = null;
+    private static PluginIPC selectedPlugin = null;
+    private static readonly Dictionary<string, PluginIPC> plugins = new()
+    {
+        ["ReAction"] = new("ReAction"),
+        ["uDev"] = new("uDev")
+    };
 
     public static bool IsVisible
     {
@@ -139,10 +175,10 @@ public static unsafe class PluginUI
         ImGui.SameLine();
 
         ImGui.BeginChild("SignatureInfo");
-        if (selectedSigInfo == null)
-            DrawSignatureList();
-        else
+        if (selectedSigInfo != null)
             DrawSelectedSigInfo();
+        else if (selectedPlugin != null)
+            DrawSignatureList();
         ImGui.EndChild();
 
 
@@ -151,7 +187,12 @@ public static unsafe class PluginUI
 
     private static void DrawPluginList()
     {
-        ImGui.Selectable("Fix Me", true);
+        foreach (var (name, ipc) in plugins)
+        {
+            if (!ImGui.Selectable(name, name == selectedPlugin?.Name)) continue;
+            selectedPlugin = ipc;
+            selectedSigInfo = null;
+        }
     }
 
     private static void DrawSignatureList()
@@ -164,7 +205,7 @@ public static unsafe class PluginUI
         ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.None, 0.2f);
         ImGui.TableHeadersRow();
 
-        foreach (var sigInfo in DalamudApi.SigScanner.SigInfos)
+        foreach (var sigInfo in selectedPlugin.SigInfos)
         {
             var info = sigInfo.assignableInfo?.Name ?? string.Empty;
             var offset = sigInfo.offset != 0 ? $"({sigInfo.offset})" : string.Empty;
