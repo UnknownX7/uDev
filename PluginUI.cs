@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Dalamud.Interface;
 using Dalamud.Plugin.Ipc;
 using ImGuiNET;
+using static Hypostasis.Game.SigScannerWrapper;
 using static Hypostasis.Util;
 
 namespace uDev;
@@ -19,27 +20,35 @@ public static unsafe class PluginUI
     private class PluginIPC //: IDisposable
     {
         public string Name { get; }
-        private ICallGateSubscriber<List<SigScannerWrapper.SigInfo>> GetSigInfosSubscriber { get; }
+        private ICallGateSubscriber<List<SignatureInfo>> GetSigInfosSubscriber { get; }
         private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
-        public List<SigScannerWrapper.SigInfo> SigInfos
+        public List<SignatureInfo> SigInfos
         {
             get
             {
-                var sigInfos = GetSigInfosSubscriber.InvokeFunc();
-                var memberInfos = GetMemberInfosSubscriber.InvokeFunc();
-                for (int i = 0; i < sigInfos.Count; i++)
+                try
                 {
-                    if (!memberInfos.TryGetValue(i, out var memberInfo)) continue;
-                    sigInfos[i].assignableInfo = new(memberInfo.Item1, memberInfo.Item2);
+                    var sigInfos = GetSigInfosSubscriber.InvokeFunc();
+                    var memberInfos = GetMemberInfosSubscriber.InvokeFunc();
+                    for (int i = 0; i < sigInfos.Count; i++)
+                    {
+                        if (!memberInfos.TryGetValue(i, out var memberInfo)) continue;
+                        sigInfos[i].AssignableInfo = new(memberInfo.Item1, memberInfo.Item2);
+                    }
+                    return sigInfos;
                 }
-                return sigInfos;
+                catch
+                {
+                    selectedPlugin = null;
+                    return new List<SignatureInfo>();
+                }
             }
         }
 
         public PluginIPC(string name)
         {
             Name = name;
-            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SigInfo>>($"{name}.Hypostasis.GetSigInfos");
+            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SignatureInfo>>($"{name}.Hypostasis.GetSigInfos");
             GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.Hypostasis.GetMemberInfos");
         }
         //public void Dispose() { }
@@ -51,6 +60,7 @@ public static unsafe class PluginUI
         public Type Type { get; }
         public bool IsPointer { get; }
         public Type BoxedType { get; }
+        public nint Address { get; }
         public bool CanReadMemory { get; }
         public object Struct { get; }
         public bool ShouldDrawStruct { get; }
@@ -111,13 +121,13 @@ public static unsafe class PluginUI
 
             if (IsPointer && BoxedType != null)
             {
-                var address = (nint)Pointer.Unbox((Pointer)Value!);
-                CanReadMemory = Debug.CanReadMemory(address, Marshal.SizeOf(BoxedType));
+                Address = ConvertObjectToIntPtr(Value);
+                CanReadMemory = Debug.CanReadMemory(Address, Marshal.SizeOf(BoxedType));
 
                 // Thanks void and void* and void** and so on...
                 try
                 {
-                    Struct = Marshal.PtrToStructure(address, BoxedType);
+                    Struct = Marshal.PtrToStructure(Address, BoxedType);
                 }
                 catch { }
             }
@@ -132,7 +142,7 @@ public static unsafe class PluginUI
 
     private class MemoryView
     {
-        public nint Address { get; set; }
+        public nint Address { get; }
         public long Size { get; set; }
         public MemoryView(nint address, long size)
         {
@@ -143,13 +153,9 @@ public static unsafe class PluginUI
 
     private static readonly List<MemoryView> displayedMemoryViews = new();
     private static bool isVisible = true;
-    private static SigScannerWrapper.SigInfo selectedSigInfo = null;
+    private static SignatureInfo selectedSigInfo = null;
     private static PluginIPC selectedPlugin = null;
-    private static readonly Dictionary<string, PluginIPC> plugins = new()
-    {
-        ["ReAction"] = new("ReAction"),
-        ["uDev"] = new("uDev")
-    };
+    private static readonly Dictionary<string, PluginIPC> plugins = new();
 
     public static bool IsVisible
     {
@@ -187,11 +193,19 @@ public static unsafe class PluginUI
 
     private static void DrawPluginList()
     {
-        foreach (var (name, ipc) in plugins)
+        var pluginNames = DalamudApi.PluginInterface.GetData<HashSet<string>>(IPC.HypostasisTag);
+        if (pluginNames == null) return;
+
+        lock (pluginNames)
         {
-            if (!ImGui.Selectable(name, name == selectedPlugin?.Name)) continue;
-            selectedPlugin = ipc;
-            selectedSigInfo = null;
+            foreach (var name in pluginNames.Where(name => ImGui.Selectable(name, name == selectedPlugin?.Name)))
+            {
+                if (!plugins.TryGetValue(name, out var ipc))
+                    plugins.Add(name, ipc = new(name));
+
+                selectedPlugin = ipc;
+                selectedSigInfo = null;
+            }
         }
     }
 
@@ -207,22 +221,21 @@ public static unsafe class PluginUI
 
         foreach (var sigInfo in selectedPlugin.SigInfos)
         {
-            var info = sigInfo.assignableInfo?.Name ?? string.Empty;
-            var offset = sigInfo.offset != 0 ? $"({sigInfo.offset})" : string.Empty;
+            var offset = sigInfo.Offset != 0 ? $"({sigInfo.Offset})" : string.Empty;
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
 
-            ImGui.TextUnformatted(info);
+            ImGui.TextUnformatted($"{sigInfo.AssignableInfo?.Name}");
             if (ImGui.IsItemClicked())
                 selectedSigInfo = sigInfo;
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{sigInfo.signature} {offset}");
+            ImGui.TextUnformatted($"{sigInfo.Signature} {offset}");
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{sigInfo.address:X}");
+            ImGui.TextUnformatted($"{sigInfo.Address:X}");
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{sigInfo.sigType}");
+            ImGui.TextUnformatted($"{sigInfo.SigType}");
         }
 
         ImGui.EndTable();
@@ -236,28 +249,29 @@ public static unsafe class PluginUI
             return;
         }
 
-        ImGui.TextUnformatted($"Signature: {selectedSigInfo.signature}");
+        ImGui.TextUnformatted($"Name: {selectedSigInfo.AssignableInfo?.Name}");
+        ImGui.TextUnformatted($"Signature: {selectedSigInfo.Signature}");
         ImGui.TextUnformatted("Address:");
         ImGui.SameLine();
-        ImGuiEx.TextCopyable($"{selectedSigInfo.address:X}");
-        ImGui.TextUnformatted($"Type: {selectedSigInfo.sigType}");
+        ImGuiEx.TextCopyable($"{selectedSigInfo.Address:X}");
+        ImGui.TextUnformatted($"Type: {selectedSigInfo.SigType}");
 
-        if (selectedSigInfo.assignableInfo is not { } assignableInfo) return;
-        var memberInfo = assignableInfo.memberInfo;
-        var memberDetails = new MemberDetails(memberInfo, assignableInfo.obj);
+        if (selectedSigInfo.AssignableInfo is not { } assignableInfo) return;
+        var memberInfo = assignableInfo.MemberInfo;
+        var memberDetails = new MemberDetails(memberInfo, assignableInfo.Object);
 
-        if (selectedSigInfo.sigAttribute != null)
+        ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Member Info");
+        ImGui.TextUnformatted($"{memberInfo.MemberType}: {memberInfo.DeclaringType}.{assignableInfo.Name}");
+        ImGui.TextUnformatted($"{memberDetails.Type}: {memberDetails.ValueString}");
+        if (memberDetails.IsPointer)
+            ImGui.TextUnformatted($"Can Read Memory: {memberDetails.CanReadMemory}");
+
+        if (selectedSigInfo.SigAttribute != null)
         {
-            var attribute = selectedSigInfo.sigAttribute;
-            var ex = selectedSigInfo.exAttribute;
-
-            ImGui.Spacing();
-            ImGui.Spacing();
-            ImGui.TextUnformatted("Member Info");
-            ImGui.TextUnformatted($"{memberInfo.MemberType}: {memberInfo.DeclaringType}.{assignableInfo.Name}");
-            ImGui.TextUnformatted($"{memberDetails.Type}: {memberDetails.ValueString}");
-            if (memberDetails.IsPointer)
-                ImGui.TextUnformatted($"Can Read Memory: {memberDetails.CanReadMemory}");
+            var attribute = selectedSigInfo.SigAttribute;
+            var ex = selectedSigInfo.ExAttribute;
 
             ImGui.Spacing();
             ImGui.Spacing();
@@ -266,13 +280,21 @@ public static unsafe class PluginUI
             ImGui.TextUnformatted($"Offset: {attribute.Offset}");
             ImGui.TextUnformatted($"Fallibility: {attribute.Fallibility}");
 
-            if (selectedSigInfo.sigType == SigScannerWrapper.SigInfo.SigType.Hook)
+            if (selectedSigInfo.SigType == SignatureInfo.SignatureType.Hook)
             {
                 ImGui.TextUnformatted($"Detour: {attribute.DetourName}");
                 ImGui.TextUnformatted($"Enable: {ex.EnableHook}");
                 ImGui.TextUnformatted($"Dispose: {ex.DisposeHook}");
             }
+        }
+        else if (selectedSigInfo.CSAttribute != null)
+        {
+            var attribute = selectedSigInfo.CSAttribute;
 
+            ImGui.Spacing();
+            ImGui.Spacing();
+            ImGui.TextUnformatted("Attribute Info");
+            ImGui.TextUnformatted($"{attribute.ClientStructsType}.{attribute.MemberName}");
         }
 
         if (!memberDetails.ShouldDrawStruct || !ImGui.BeginTabBar("DetailsTabBar")) return;
@@ -287,7 +309,7 @@ public static unsafe class PluginUI
         if (memberDetails.IsPointer && ImGui.BeginTabItem("Memory Details"))
         {
             ImGui.BeginChild("MemoryDetails", ImGui.GetContentRegionAvail(), true);
-            DrawMemoryDetails(selectedSigInfo.address, Marshal.SizeOf(memberDetails.BoxedType));
+            DrawMemoryDetails(memberDetails.Address, Marshal.SizeOf(memberDetails.BoxedType));
             ImGui.EndChild();
             ImGui.EndTabItem();
         }
@@ -349,9 +371,11 @@ public static unsafe class PluginUI
         var clipper = new ImGuiListClipperPtr(ImGuiNative.ImGuiListClipper_ImGuiListClipper());
         clipper.Begin((int)MathF.Ceiling(length / (float)columns), ImGui.GetFontSize() + ImGui.GetStyle().ItemSpacing.Y);
 
-        var readable = Debug.GetReadableMemory(address, length);
         while (clipper.Step())
         {
+            var startOffset = clipper.DisplayStart * columns;
+            var memorySize = Math.Min((clipper.DisplayEnd - clipper.DisplayStart + 1) * columns, length - startOffset);
+            var readable = Debug.GetReadableMemory(address + startOffset, memorySize);
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
             {
                 var i = row * columns;
@@ -379,7 +403,14 @@ public static unsafe class PluginUI
                             _ => 1
                         };
 
-                        ImGui.TextUnformatted(b.ToString("X2"));
+                        var color = ptrAddr switch
+                        {
+                            _ when ptrAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
+                            _ when ptrAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
+                            _ => Vector4.One
+                        };
+
+                        ImGui.TextColored(color, b.ToString("X2"));
 
                         if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                         {

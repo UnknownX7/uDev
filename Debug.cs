@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace uDev;
 
-public static class Debug
+public static partial class Debug
 {
     [StructLayout(LayoutKind.Sequential)]
     public struct MEMORY_BASIC_INFORMATION
@@ -18,12 +18,12 @@ public static class Debug
         public uint Type;
     }
 
-    [DllImport("kernel32.dll")]
-    private static extern int VirtualQuery(nint lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, int dwLength);
+    [LibraryImport("kernel32.dll")]
+    private static partial int VirtualQuery(nint lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, int dwLength);
 
     public static unsafe bool CanReadMemory(nint address, long size)
     {
-        if (address == 0 || size == 0)
+        if (address == 0 || size <= 0)
             return false;
 
         var endAddress = address + size;
@@ -44,7 +44,7 @@ public static class Debug
     public static unsafe nint GetMaxReadableMemory(nint address, long size)
     {
         var max = nint.Zero;
-        if (address == 0 || size == 0)
+        if (address == 0 || size <= 0)
             return max;
 
         var endAddress = address + size;
@@ -66,7 +66,7 @@ public static class Debug
     public static unsafe HashSet<nint> GetReadableMemory(nint address, long size)
     {
         var set = new HashSet<nint>();
-        if (address == 0 || size == 0)
+        if (address == 0 || size <= 0)
             return set;
 
         var endAddress = address + size;

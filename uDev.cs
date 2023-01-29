@@ -1,4 +1,4 @@
-﻿using Dalamud.Game;
+using Dalamud.Game;
 using Dalamud.Plugin;
 
 namespace uDev;
@@ -9,9 +9,11 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
 {
     public override string Name => "uDev";
 
-    public uDev(DalamudPluginInterface pluginInterface) : base(pluginInterface)
-    {
+    public uDev(DalamudPluginInterface pluginInterface) : base(pluginInterface) { }
 
+    protected override void Initialize()
+    {
+        DalamudApi.SigScanner.Inject(typeof(Common));
     }
 
     protected override void ToggleConfig() => PluginUI.IsVisible ^= true;
