@@ -1,11 +1,154 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using static Hypostasis.Util;
+using uDev.UI;
+using Dalamud.Plugin.Ipc;
 
 namespace uDev;
 
 public static partial class Debug
 {
+    public class MemberDetails
+    {
+        public object Value { get; }
+        public Type Type { get; }
+        public bool IsPointer { get; }
+        public Type BoxedType { get; }
+        public nint Address { get; }
+        public long Length { get; }
+        public bool CanReadMemory { get; }
+        public object Struct { get; }
+        public bool ShouldDrawStruct { get; }
+        public bool IsArray { get; }
+        public int ArrayLength { get; }
+        public string ValueString => Value switch
+        {
+            nint p => p.ToString("X"),
+            _ when !IsPointer => Value?.ToString() ?? string.Empty,
+            _ => string.Empty
+        };
+
+        public MemberDetails(MemberInfo memberInfo, object o)
+        {
+            switch (memberInfo)
+            {
+                case FieldInfo f:
+                    Value = f.GetValue(o);
+                    Type = f.FieldType;
+                    break;
+                case PropertyInfo p:
+                    IsArray = p.GetIndexParameters().Length > 0;
+                    if (IsArray)
+                    {
+                        var array = new List<object>();
+                        try
+                        {
+                            var oType = o.GetType();
+                            var countMember = oType.GetMember("Count", ReflectionUI.defaultBindingFlags | BindingFlags.IgnoreCase)
+                                .Concat(oType.GetMember("Length", ReflectionUI.defaultBindingFlags | BindingFlags.IgnoreCase))
+                                .First();
+                            var countInfo = new AssignableInfo(o, countMember);
+                            var count = (int)countInfo.GetValue();
+                            ArrayLength = count;
+                            for (int i = 0; i < count; i++)
+                                array.Add(p.GetValue(o, new object[] { i }));
+                        }
+                        catch { }
+
+                        Value = array;
+                    }
+                    else
+                    {
+                        Value = p.GetValue(o);
+                    }
+                    Type = p.PropertyType;
+                    break;
+                case MethodInfo m:
+                    Value = m;
+                    Type = m.ReturnType;
+                    return;
+                default:
+                    break;
+            }
+
+            IsPointer = Type?.IsPointer ?? false;
+            BoxedType = Type?.GetElementType();
+
+            if (IsPointer && BoxedType != null)
+            {
+                Address = ConvertObjectToIntPtr(Value);
+                Length = Marshal.SizeOf(BoxedType);
+                CanReadMemory = Debug.CanReadMemory(Address, Length);
+
+                // Thanks void and void* and void** and so on...
+                try
+                {
+                    Struct = Marshal.PtrToStructure(Address, BoxedType);
+                }
+                catch { }
+            }
+            else if (Value?.GetType().Name == nameof(AsmPatch))
+            {
+                try
+                {
+                    Address = (nint)Value.GetType().GetProperty("Address")!.GetValue(Value)!;
+                    Length = ((byte[])Value.GetType().GetProperty("OldBytes")!.GetValue(Value)!).Length;
+                    CanReadMemory = Debug.CanReadMemory(Address, Length);
+                    Struct = Value;
+                }
+                catch
+                {
+
+                }
+            }
+            else
+            {
+                Struct = Value;
+            }
+
+            ShouldDrawStruct = Struct?.GetType() is { IsValueType: true, IsEnum: false } && Struct is not IComparable;
+        }
+    }
+
+    public class PluginIPC //: IDisposable
+    {
+        public string Name { get; }
+        private ICallGateSubscriber<List<SigScannerWrapper.SignatureInfo>> GetSigInfosSubscriber { get; }
+        private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
+        public List<SigScannerWrapper.SignatureInfo> SigInfos
+        {
+            get
+            {
+                try
+                {
+                    var sigInfos = GetSigInfosSubscriber.InvokeFunc();
+                    var memberInfos = GetMemberInfosSubscriber.InvokeFunc();
+                    for (int i = 0; i < sigInfos.Count; i++)
+                    {
+                        if (!memberInfos.TryGetValue(i, out var memberInfo)) continue;
+                        sigInfos[i].AssignableInfo = new(memberInfo.Item1, memberInfo.Item2);
+                    }
+                    return sigInfos;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
+        public PluginIPC(string name)
+        {
+            Name = name;
+            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SignatureInfo>>($"{name}.Hypostasis.GetSigInfos");
+            GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.Hypostasis.GetMemberInfos");
+        }
+        //public void Dispose() { }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct MEMORY_BASIC_INFORMATION
     {

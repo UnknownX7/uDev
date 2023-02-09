@@ -1,5 +1,6 @@
 using Dalamud.Game;
 using Dalamud.Plugin;
+using uDev.UI;
 
 namespace uDev;
 
@@ -16,14 +17,14 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
         DalamudApi.SigScanner.Inject(typeof(Common));
     }
 
-    protected override void ToggleConfig() => PluginUI.IsVisible ^= true;
+    protected override void ToggleConfig() => MainUI.IsVisible ^= true;
 
     [PluginCommand("/udev", HelpMessage = "Opens / closes the config.")]
     private void ToggleConfig(string command, string argument) => ToggleConfig();
 
     protected override void Update(Framework framework) { }
 
-    protected override void Draw() => PluginUI.Draw();
+    protected override void Draw() => MainUI.Draw();
 
     protected override void Dispose(bool disposing)
     {
