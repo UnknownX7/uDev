@@ -85,8 +85,7 @@ public static unsafe class MemoryUI
                                 displayedMemoryViews.Add(new MemoryView(a, 0x200));
                         }
 
-                        if (ImGui.IsItemHovered())
-                            ImGui.SetTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+                        ImGuiEx.SetItemTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
 
                         if (b > 31)
                             str += (char)b;
@@ -100,7 +99,6 @@ public static unsafe class MemoryUI
                     }
 
                     ImGui.SameLine();
-
 
                     if (j == columns - 1 || (j + 1) % 8 != 0) continue;
                     ImGui.TextUnformatted("|");

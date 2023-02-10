@@ -160,12 +160,12 @@ public static class MainUI
             ImGui.TextUnformatted($"{attribute.ClientStructsType}.{attribute.MemberName}");
         }
 
-        if ((!memberDetails.ShouldDrawStruct && memberDetails.Length == 0) || !ImGui.BeginTabBar("DetailsTabBar")) return;
+        if ((!memberDetails.ContainsMembers && memberDetails.Length == 0) || !ImGui.BeginTabBar("DetailsTabBar")) return;
 
-        if (memberDetails.ShouldDrawStruct && ImGui.BeginTabItem("Structure Details"))
+        if (memberDetails.ContainsMembers && ImGui.BeginTabItem("Object Details"))
         {
-            ImGui.BeginChild("StructureDetails", ImGui.GetContentRegionAvail(), true);
-            ReflectionUI.DrawStructureDetails(memberDetails.Struct);
+            ImGui.BeginChild("ObjectDetails", ImGui.GetContentRegionAvail(), true);
+            ReflectionUI.DrawObjectDetails(memberDetails);
             ImGui.EndChild();
             ImGui.EndTabItem();
         }
