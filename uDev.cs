@@ -26,5 +26,6 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
     protected override void Dispose(bool disposing)
     {
         if (!disposing) return;
+        HookUI.Hook?.Dispose();
     }
 }

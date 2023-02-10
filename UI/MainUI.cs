@@ -48,11 +48,13 @@ public static class MainUI
 
             if (ImGui.BeginTabItem("Signature Test"))
             {
+                SignatureUI.Draw();
                 ImGui.EndTabItem();
             }
 
             if (ImGui.BeginTabItem("Hook Test"))
             {
+                HookUI.Draw();
                 ImGui.EndTabItem();
             }
 
