@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Dalamud.Game.Text;
 using Dalamud.Hooking;
 using Dalamud.Interface;
 using Dalamud.Logging;
@@ -28,12 +29,15 @@ public static class HookUI
     };
 
     private static readonly string[] argTypes = typeDictionary.Select(kv => kv.Key).ToArray();
-
-    private static int ret;
+    private static int ret = 1;
     private static readonly int[] args = new int[10];
     private static object hook;
+    private static bool logChat = false;
+    private static bool startEnabled = true;
 
     public static IDisposable Hook => hook as IDisposable;
+
+    static HookUI() => args[0] = 8;
 
     public static void Draw()
     {
@@ -54,11 +58,22 @@ public static class HookUI
 
         ImGui.TextUnformatted(")");
 
-        if (ImGui.Button("Create Delegate"))
+        var valid = ValidateAddress();
+
+        if (!valid)
+            ImGui.BeginDisabled();
+
+        if (ImGui.Button("Create Hook"))
         {
             Hook?.Dispose();
             hook = CreateHook();
+            if (startEnabled)
+                EnableHook();
         }
+
+        if (!valid)
+            ImGui.EndDisabled();
+
         ImGui.SameLine();
         ImGui.Button("Reset");
         if (ImGuiEx.IsItemDoubleClicked())
@@ -67,11 +82,18 @@ public static class HookUI
             for (int i = 0; i < args.Length; i++)
                 args[i] = 0;
         }
+        ImGui.SameLine();
+        ImGui.Checkbox("Log to Chat", ref logChat);
+        ImGui.SameLine();
+        ImGui.Checkbox("Start Enabled", ref startEnabled);
 
         if (hook == null) return;
 
         if (ImGui.Button("Enable Hook"))
-            hook.GetType().GetMethod("Enable")?.Invoke(hook, null);
+            EnableHook();
+        ImGui.SameLine();
+        if (ImGui.Button("Disable Hook"))
+            DisableHook();
         ImGui.SameLine();
         if (ImGui.Button("Dispose Hook") && Hook != null)
         {
@@ -80,6 +102,15 @@ public static class HookUI
         }
     }
 
+    private static unsafe bool ValidateAddress() => SignatureUI.Address >= DalamudApi.SigScanner.BaseTextAddress && SignatureUI.Address < DalamudApi.SigScanner.BaseRDataAddress
+        && *(byte*)SignatureUI.Address != 0xCC && *(byte*)(SignatureUI.Address - 1) == 0xCC;
+
+    // Delegate func(...)
+    // {
+    //      var ret = hook.Original(...);
+    //      Log(ConcatParams(hasReturn, ...));
+    //      return ret;
+    // }
     private static object CreateHook()
     {
         var types = args.TakeWhile(id => id != 0).Select(id => typeDictionary[argTypes[id]]).ToList();
@@ -97,26 +128,36 @@ public static class HookUI
         var hookType = typeof(Hook<>).MakeGenericType(hookDelegateType);
         var ctor = hookType.GetConstructor(new[] { typeof(nint), hookDelegateType });
 
-        var hookField = Expression.Convert(Expression.Field(null, typeof(HookUI).GetField("hook", BindingFlags.Static | BindingFlags.NonPublic)!), hookType);
-        var getHookOriginal = Expression.Call(hookField, hookType.GetProperty("Original", BindingFlags.Instance | BindingFlags.Public)!.GetMethod!);
-        var callHookOriginal = Expression.Invoke(getHookOriginal, paramExpressions);
         var retVar = hasReturn ? Expression.Variable(retType, "ret") : null;
-        var assignRet = hasReturn ? Expression.Assign(retVar, callHookOriginal) : null; //Expression.Convert(callHookOriginal, retType)
+        var hookField = Expression.Convert(Expression.Field(null, typeof(HookUI).GetField(nameof(hook), BindingFlags.Static | BindingFlags.NonPublic)!), hookType);
+        var getHookOriginal = Expression.Call(hookField, hookType.GetProperty(nameof(Hook<Action>.Original), BindingFlags.Instance | BindingFlags.Public)!.GetMethod!);
+        var callHookOriginal = Expression.Invoke(getHookOriginal, paramExpressions);
+        var assignRet = hasReturn ? Expression.Assign(retVar, callHookOriginal) : null;
 
         var objectArray = paramExpressions.Select(p => Expression.Convert(p, typeof(object)));
         if (hasReturn)
             objectArray = objectArray.Append(Expression.Convert(retVar, typeof(object)));
-
-        var concatExpression = Expression.Call(typeof(HookUI).GetMethod("ConcatParams", BindingFlags.Static | BindingFlags.NonPublic)!, Expression.NewArrayInit(typeof(object), objectArray));
-        var printExpression = Expression.Call(typeof(HookUI).GetMethod("LogInfo", BindingFlags.Static | BindingFlags.NonPublic)!, concatExpression);
+        var concatExpression = Expression.Call(typeof(HookUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
+        var printExpression = Expression.Call(typeof(HookUI).GetMethod(nameof(Log), BindingFlags.Static | BindingFlags.NonPublic)!, concatExpression);
 
         var block = hasReturn ? Expression.Block(new[] { retVar }, assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
         return ctor?.Invoke(new object[] { SignatureUI.Address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
     }
 
-    private static void LogInfo(string message) => PluginLog.Information(message);
+    private static void EnableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Enable))?.Invoke(hook, null);
 
-    private static string ConcatParams(params object[] objects)
+    private static void DisableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Disable))?.Invoke(hook, null);
+
+    private static void Log(string message)
+    {
+        message = $"[HookTest] {message}";
+        if (logChat)
+            DalamudApi.ChatGui.PrintChat(new() { Message = message, Type = XivChatType.Notice });
+        else
+            PluginLog.Warning(message);
+    }
+
+    private static string ConcatParams(bool hasReturn, params object[] objects)
     {
         var str = string.Empty;
 
@@ -129,10 +170,7 @@ public static class HookUI
                 nuint up => up.ToString("X"),
                 _ => o.ToString()
             };
-            if (i != objects.Length - 1)
-                str += $"a{i + 1}: {oStr} | ";
-            else
-                str += $"ret: {oStr}";
+            str += (i != objects.Length - 1) ? $"a{i + 1}: {oStr} | " : (hasReturn ? $"ret: {oStr}" : $"a{i + 1}: {oStr}");
         }
 
         return str;

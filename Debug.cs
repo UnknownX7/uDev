@@ -121,7 +121,7 @@ public static partial class Debug
     public class PluginIPC //: IDisposable
     {
         public string Name { get; }
-        private ICallGateSubscriber<IDalamudPlugin> GetPlugin { get; }
+        private ICallGateSubscriber<IDalamudPlugin> GetPluginSubscriber { get; }
         private ICallGateSubscriber<List<SigScannerWrapper.SignatureInfo>> GetSigInfosSubscriber { get; }
         private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
 
@@ -133,7 +133,7 @@ public static partial class Debug
             {
                 try
                 {
-                    return GetPlugin.InvokeFunc();
+                    return GetPluginSubscriber.InvokeFunc();
                 }
                 catch
                 {
@@ -167,9 +167,9 @@ public static partial class Debug
         public PluginIPC(string name)
         {
             Name = name;
-            GetPlugin = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.Hypostasis.GetPlugin");
-            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SignatureInfo>>($"{name}.Hypostasis.GetSigInfos");
-            GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.Hypostasis.GetMemberInfos");
+            GetPluginSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPlugin");
+            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SignatureInfo>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetSigInfos");
+            GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetMemberInfos");
         }
         //public void Dispose() { }
     }

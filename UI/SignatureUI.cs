@@ -4,7 +4,7 @@ namespace uDev.UI;
 
 public static class SignatureUI
 {
-    public static nint Address { get; set; } = DalamudApi.SigScanner.BaseAddress;
+    public static nint Address { get; set; } = DalamudApi.SigScanner.BaseTextAddress;
     public static string HexAddress
     {
         get => Address.ToString("X");
