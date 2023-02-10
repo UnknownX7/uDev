@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Dalamud.Plugin;
 using static Hypostasis.Util;
 using uDev.UI;
 using Dalamud.Plugin.Ipc;
@@ -42,10 +43,14 @@ public static partial class Debug
             switch (memberInfo)
             {
                 case FieldInfo f:
+                    if (!f.IsStatic && o == null) return;
+
                     Value = f.GetValue(o);
                     Type = f.FieldType;
                     break;
                 case PropertyInfo p:
+                    if (p.GetMethod is not { IsStatic: true } && o == null) return;
+
                     IsArray = p.GetIndexParameters().Length > 0;
                     if (IsArray)
                     {
@@ -73,6 +78,8 @@ public static partial class Debug
                     Type = p.PropertyType;
                     break;
                 case MethodInfo m:
+                    if (!m.IsStatic && o == null) return;
+
                     Value = m;
                     Type = m.ReturnType;
                     return;
@@ -114,8 +121,27 @@ public static partial class Debug
     public class PluginIPC //: IDisposable
     {
         public string Name { get; }
+        private ICallGateSubscriber<IDalamudPlugin> GetPlugin { get; }
         private ICallGateSubscriber<List<SigScannerWrapper.SignatureInfo>> GetSigInfosSubscriber { get; }
         private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
+
+        public Assembly Assembly => Plugin is { } p ? Assembly.GetAssembly(p.GetType()) : null;
+
+        public IDalamudPlugin Plugin
+        {
+            get
+            {
+                try
+                {
+                    return GetPlugin.InvokeFunc();
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
         public List<SigScannerWrapper.SignatureInfo> SigInfos
         {
             get
@@ -141,6 +167,7 @@ public static partial class Debug
         public PluginIPC(string name)
         {
             Name = name;
+            GetPlugin = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.Hypostasis.GetPlugin");
             GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SignatureInfo>>($"{name}.Hypostasis.GetSigInfos");
             GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.Hypostasis.GetMemberInfos");
         }

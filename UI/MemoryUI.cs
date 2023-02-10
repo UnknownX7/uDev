@@ -28,6 +28,12 @@ public static unsafe class MemoryUI
             DrawMemoryDetailsWindow(displayedMemoryViews[i]);
     }
 
+    public static void AddMemoryView(nint address)
+    {
+        if (displayedMemoryViews.All(v => v.Address != address))
+            displayedMemoryViews.Add(new MemoryView(address, 0x200));
+    }
+
     public static void DrawMemoryDetails(nint address, long length)
     {
         ImGui.PushFont(UiBuilder.MonoFont);
@@ -81,8 +87,8 @@ public static unsafe class MemoryUI
                         if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                         {
                             var a = *(nint*)ptr;
-                            if (Debug.CanReadMemory(a, 1) && displayedMemoryViews.All(v => v.Address != a))
-                                displayedMemoryViews.Add(new MemoryView(a, 0x200));
+                            if (Debug.CanReadMemory(a, 1))
+                                AddMemoryView(a);
                         }
 
                         ImGuiEx.SetItemTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");

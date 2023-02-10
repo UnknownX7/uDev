@@ -29,19 +29,35 @@ public static class MainUI
         ImGui.Begin("uDev", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         ImGuiEx.AddDonationHeader(2);
 
-        ImGui.BeginChild("PluginList", new Vector2(150 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
-        DrawPluginList();
-        ImGui.EndChild();
+        if (ImGui.BeginTabBar("MainViewTabBar"))
+        {
+            if (ImGui.BeginTabItem("Browse Plugins"))
+            {
+                ImGui.BeginChild("PluginList", new Vector2(150 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
+                DrawPluginList();
+                ImGui.EndChild();
 
-        ImGui.SameLine();
+                ImGui.SameLine();
 
-        ImGui.BeginChild("SignatureInfo");
-        if (selectedSigInfo != null)
-            DrawSelectedSigInfo();
-        else if (selectedPlugin != null)
-            DrawSignatureList();
-        ImGui.EndChild();
+                ImGui.BeginChild("PluginView");
+                DrawPluginView();
+                ImGui.EndChild();
 
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Signature Test"))
+            {
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Hook Test"))
+            {
+                ImGui.EndTabItem();
+            }
+
+            ImGui.EndTabBar();
+        }
 
         ImGui.End();
     }
@@ -62,6 +78,33 @@ public static class MainUI
                 selectedSigInfo = null;
             }
         }
+    }
+
+    private static void DrawPluginView()
+    {
+        if (selectedPlugin == null) return;
+
+        if (selectedSigInfo != null)
+        {
+            if (!DrawBackButton())
+                DrawSelectedSigInfo();
+            return;
+        }
+
+        /*ImGui.TextUnformatted("Assembly");
+        ImGui.BeginChild("AssemblyTypes");
+        ReflectionUI.DrawAssemblyDetails(selectedPlugin.Assembly);
+        ImGui.EndChild();
+
+        ImGui.TextUnformatted("Plugin");
+        ImGui.BeginChild("PluginDetails");
+        ReflectionUI.DrawObjectMembersDetails(selectedPlugin.Plugin, selectedPlugin.Plugin.GetType().GetMembers(ReflectionUI.defaultBindingFlags), true);
+        ImGui.EndChild();*/
+
+        ImGui.TextUnformatted("Signatures");
+        ImGui.BeginChild("SignatureList");
+        DrawSignatureList();
+        ImGui.EndChild();
     }
 
     private static void DrawSignatureList()
@@ -106,12 +149,6 @@ public static class MainUI
 
     private static void DrawSelectedSigInfo()
     {
-        if (ImGuiEx.FontButton(FontAwesomeIcon.ArrowLeft.ToIconString(), UiBuilder.IconFont))
-        {
-            selectedSigInfo = null;
-            return;
-        }
-
         ImGui.TextUnformatted($"Name: {selectedSigInfo.AssignableInfo?.Name}");
         ImGui.TextUnformatted($"Signature: {selectedSigInfo.Signature}");
         ImGui.TextUnformatted("Address:");
@@ -179,5 +216,12 @@ public static class MainUI
         }
 
         ImGui.EndTabBar();
+    }
+
+    private static bool DrawBackButton()
+    {
+        if (!ImGuiEx.FontButton(FontAwesomeIcon.ArrowLeft.ToIconString(), UiBuilder.IconFont)) return false;
+        selectedSigInfo = null;
+        return true;
     }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using ImGuiNET;
 using System.Reflection;
@@ -10,15 +12,34 @@ public static class ReflectionUI
     public const BindingFlags defaultBindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private const MemberTypes whitelistedMemberTypes = MemberTypes.Field | MemberTypes.Property;
 
+    public static void DrawAssemblyDetails(Assembly assembly)
+    {
+        foreach (var type in assembly.GetTypes().Where(t => !t.ContainsGenericParameters))
+        {
+            var open = ImGui.TreeNodeEx($"##{type.FullName}", ImGuiTreeNodeFlags.AllowItemOverlap | ImGuiTreeNodeFlags.SpanAvailWidth);
+            ImGui.SameLine();
+            ImGui.TextColored(new Vector4(0.25f, 1, 0.5f, 1), type.ToString());
+            ImGui.SameLine();
+            ImGui.TextColored(new Vector4(0.25f, 0.5f, 1, 1), type.Name);
+
+            if (!open) continue;
+            DrawObjectMembersDetails(null, type.GetMembers(defaultBindingFlags), type.IsClass);
+            ImGui.TreePop();
+        }
+    }
+
     public static void DrawObjectDetails(Debug.MemberDetails objectDetails)
     {
         var type = objectDetails.Value.GetType();
-        var isClass = type.IsClass;
+        DrawObjectMembersDetails(objectDetails.Value, type.GetMembers(defaultBindingFlags), type.IsClass);
+    }
 
-        foreach (var memberInfo in type.GetMembers(defaultBindingFlags))
+    public static void DrawObjectMembersDetails(object o, IEnumerable<MemberInfo> members, bool isClass)
+    {
+        foreach (var memberInfo in members)
         {
             if ((memberInfo.MemberType & whitelistedMemberTypes) == 0) continue;
-            var memberDetails = new Debug.MemberDetails(memberInfo, objectDetails.Value);
+            var memberDetails = new Debug.MemberDetails(memberInfo, o);
 
             var open = false;
             var indent = 0;
