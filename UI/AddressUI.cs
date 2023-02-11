@@ -32,7 +32,7 @@ public static class AddressUI
     public static string HexAddress
     {
         get => address.ToString("X");
-        set => address = nint.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out var tmp) ? (tmp > uint.MaxValue ? tmp : tmp + DalamudApi.SigScanner.BaseAddress) : nint.Zero;
+        set => address = nint.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out var p) ? (p > uint.MaxValue ? p : p + DalamudApi.SigScanner.BaseAddress) : nint.Zero;
     }
 
     private static string signature = string.Empty;
@@ -142,7 +142,7 @@ public static class AddressUI
         ImGui.SameLine();
         ImGui.TextUnformatted(")");
 
-        var valid = ValidateAddress();
+        var valid = address.IsValidHookAddress();
         if (!valid)
             ImGui.BeginDisabled();
 
@@ -184,10 +184,6 @@ public static class AddressUI
             hook = null;
         }
     }
-
-    private static unsafe bool ValidateAddress() => address == DalamudApi.SigScanner.BaseTextAddress
-    || (address > DalamudApi.SigScanner.BaseTextAddress && address < DalamudApi.SigScanner.BaseRDataAddress
-        && *(byte*)address != 0xCC && *(byte*)(address - 1) == 0xCC);
 
     private static void TypeCombo(string label, ref int current)
     {
