@@ -1,9 +1,10 @@
 using Dalamud.Game.Text;
 using Dalamud.Hooking;
+using Dalamud.Interface;
 using Dalamud.Logging;
 using ImGuiNET;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
@@ -128,10 +129,17 @@ public static class AddressUI
         ImGui.TextUnformatted("func(");
         ImGui.SameLine();
 
+        var maxArg = 0;
         for (int i = 0; i < args.Length; i++)
         {
-            TypeCombo($"a{i + 1}", ref args[i]);
-            if (args[i] == 0) break;
+            TypeCombo(args[i] != 0 ? $"a{i + 1}" : $"##a{i + 1}", ref args[i]);
+
+            if (i == args.Length - 1 || args[i] == 0)
+            {
+                maxArg = i;
+                break;
+            }
+
             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, Vector2.Zero);
             ImGui.SameLine();
             ImGui.PopStyleVar();
@@ -140,7 +148,31 @@ public static class AddressUI
         }
 
         ImGui.SameLine();
-        ImGui.TextUnformatted(")");
+        ImGui.TextUnformatted(")    ");
+
+        if (ImGuiEx.IsItemDraggedDelta("ArgLength", ImGuiMouseButton.Left, 62 * ImGuiHelpers.GlobalScale, false, out var dt))
+        {
+            var amount = (int)dt.X;
+            if (amount > 0)
+            {
+                for (int i = 0; i < amount; i++)
+                {
+                    if (i + maxArg >= args.Length) break;
+                    args[i + maxArg] = 6;
+                }
+            }
+            else
+            {
+                if (args[^1] != 0)
+                    maxArg++;
+
+                for (int i = 0; i < -amount; i++)
+                {
+                    if (maxArg - i <= 0) break;
+                    args[maxArg - i - 1] = 0;
+                }
+            }
+        }
 
         var valid = address.IsValidHookAddress();
         if (!valid)
