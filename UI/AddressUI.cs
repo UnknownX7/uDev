@@ -1,17 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
 using Dalamud.Game.Text;
 using Dalamud.Hooking;
-using Dalamud.Interface;
 using Dalamud.Logging;
 using ImGuiNET;
+using System.Collections.Generic;
+using System;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Numerics;
+using System.Reflection;
 
 namespace uDev.UI;
 
-public static class HookUI
+public static class AddressUI
 {
     private static readonly Dictionary<string, Type> typeDictionary = new()
     {
@@ -28,38 +28,121 @@ public static class HookUI
         ["float"] = typeof(float)
     };
 
+    private static nint address = DalamudApi.SigScanner.BaseTextAddress;
+    public static string HexAddress
+    {
+        get => address.ToString("X");
+        set => address = nint.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out var tmp) ? (tmp > uint.MaxValue ? tmp : tmp + DalamudApi.SigScanner.BaseAddress) : nint.Zero;
+    }
+
+    private static string signature = string.Empty;
     private static readonly string[] argTypes = typeDictionary.Select(kv => kv.Key).ToArray();
     private static int ret = 1;
-    private static readonly int[] args = new int[10];
+    private static readonly int[] args = new int[20];
     private static object hook;
     private static bool logChat = false;
     private static bool startEnabled = true;
 
     public static IDisposable Hook => hook as IDisposable;
 
-    static HookUI() => args[0] = 8;
+    static AddressUI() => args[0] = 8;
 
     public static void Draw()
     {
-        SignatureUI.DrawAddressInput();
-        var inputWidth = 75 * ImGuiHelpers.GlobalScale;
-        ImGui.SetNextItemWidth(inputWidth);
-        ImGui.Combo("##Return", ref ret, argTypes, argTypes.Length);
+        DrawSignatureTest();
+        ImGui.Spacing();
+        ImGui.Spacing();
+        DrawHookTest();
+        if (!Debug.CanReadMemory(address, 1)) return;
+        ImGui.BeginChild("MemoryDetails", ImGui.GetContentRegionAvail(), true);
+        MemoryUI.DrawMemoryDetails(address, 0x2000);
+        ImGui.EndChild();
+    }
+
+    private static void DrawSignatureTest()
+    {
+        var _ = HexAddress;
+        if (ImGui.InputText("Address", ref _, 16, ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase | ImGuiInputTextFlags.AutoSelectAll))
+            HexAddress = _;
+        ImGui.InputText("Signature", ref signature, 512, ImGuiInputTextFlags.AutoSelectAll);
+
+        if (ImGui.Button("Module"))
+        {
+            try
+            {
+                address = DalamudApi.SigScanner.DalamudSigScanner.ScanModule(signature);
+            }
+            catch
+            {
+                address = nint.Zero;
+            }
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Text"))
+        {
+            try
+            {
+                address = DalamudApi.SigScanner.DalamudSigScanner.ScanText(signature);
+            }
+            catch
+            {
+                address = nint.Zero;
+            }
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Data"))
+        {
+            try
+            {
+                address = DalamudApi.SigScanner.DalamudSigScanner.ScanData(signature);
+            }
+            catch
+            {
+                address = nint.Zero;
+            }
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Static"))
+        {
+            try
+            {
+                address = DalamudApi.SigScanner.DalamudSigScanner.GetStaticAddressFromSig(signature);
+            }
+            catch
+            {
+                address = nint.Zero;
+            }
+        }
+    }
+
+    private static void DrawHookTest()
+    {
+        TypeCombo("##Return", ref ret);
         ImGui.SameLine();
         ImGui.TextUnformatted("func(");
         ImGui.SameLine();
 
         for (int i = 0; i < args.Length; i++)
         {
-            ImGui.SetNextItemWidth(inputWidth);
-            ImGui.Combo($"##Arg{i}", ref args[i], argTypes, argTypes.Length);
+            TypeCombo($"a{i + 1}", ref args[i]);
+            if (args[i] == 0) break;
+            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, Vector2.Zero);
+            ImGui.SameLine();
+            ImGui.PopStyleVar();
+            ImGui.TextUnformatted(",");
             ImGui.SameLine();
         }
 
+        ImGui.SameLine();
         ImGui.TextUnformatted(")");
 
         var valid = ValidateAddress();
-
         if (!valid)
             ImGui.BeginDisabled();
 
@@ -75,7 +158,7 @@ public static class HookUI
             ImGui.EndDisabled();
 
         ImGui.SameLine();
-        ImGui.Button("Reset");
+        ImGui.Button("Reset Delegate");
         if (ImGuiEx.IsItemDoubleClicked())
         {
             ret = 0;
@@ -102,8 +185,25 @@ public static class HookUI
         }
     }
 
-    private static unsafe bool ValidateAddress() => SignatureUI.Address >= DalamudApi.SigScanner.BaseTextAddress && SignatureUI.Address < DalamudApi.SigScanner.BaseRDataAddress
-        && *(byte*)SignatureUI.Address != 0xCC && *(byte*)(SignatureUI.Address - 1) == 0xCC;
+    private static unsafe bool ValidateAddress() => address == DalamudApi.SigScanner.BaseTextAddress
+    || (address > DalamudApi.SigScanner.BaseTextAddress && address < DalamudApi.SigScanner.BaseRDataAddress
+        && *(byte*)address != 0xCC && *(byte*)(address - 1) == 0xCC);
+
+    private static void TypeCombo(string label, ref int current)
+    {
+        var preview = argTypes[current];
+        var inputWidth = ImGui.CalcTextSize(preview).X + ImGui.GetStyle().FramePadding.X * 2;
+        ImGui.SetNextItemWidth(inputWidth);
+        if (!ImGui.BeginCombo(label, preview, ImGuiComboFlags.HeightLargest | ImGuiComboFlags.NoArrowButton)) return;
+        for (int i = 0; i < argTypes.Length; i++)
+        {
+            var typeName = argTypes[i];
+            if (!ImGui.Selectable(typeName, i == current)) continue;
+            current = i;
+            break;
+        }
+        ImGui.EndCombo();
+    }
 
     // Delegate func(...)
     // {
@@ -129,7 +229,7 @@ public static class HookUI
         var ctor = hookType.GetConstructor(new[] { typeof(nint), hookDelegateType });
 
         var retVar = hasReturn ? Expression.Variable(retType, "ret") : null;
-        var hookField = Expression.Convert(Expression.Field(null, typeof(HookUI).GetField(nameof(hook), BindingFlags.Static | BindingFlags.NonPublic)!), hookType);
+        var hookField = Expression.Convert(Expression.Field(null, typeof(AddressUI).GetField(nameof(hook), BindingFlags.Static | BindingFlags.NonPublic)!), hookType);
         var getHookOriginal = Expression.Call(hookField, hookType.GetProperty(nameof(Hook<Action>.Original), BindingFlags.Instance | BindingFlags.Public)!.GetMethod!);
         var callHookOriginal = Expression.Invoke(getHookOriginal, paramExpressions);
         var assignRet = hasReturn ? Expression.Assign(retVar, callHookOriginal) : null;
@@ -137,13 +237,12 @@ public static class HookUI
         var objectArray = paramExpressions.Select(p => Expression.Convert(p, typeof(object)));
         if (hasReturn)
             objectArray = objectArray.Append(Expression.Convert(retVar, typeof(object)));
-        var concatExpression = Expression.Call(typeof(HookUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
-        var printExpression = Expression.Call(typeof(HookUI).GetMethod(nameof(Log), BindingFlags.Static | BindingFlags.NonPublic)!, concatExpression);
+        var concatExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
+        var printExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Static | BindingFlags.NonPublic)!, concatExpression);
 
         var block = hasReturn ? Expression.Block(new[] { retVar }, assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
-        return ctor?.Invoke(new object[] { SignatureUI.Address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
+        return ctor?.Invoke(new object[] { address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
     }
-
     private static void EnableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Enable))?.Invoke(hook, null);
 
     private static void DisableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Disable))?.Invoke(hook, null);

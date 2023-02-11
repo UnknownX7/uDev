@@ -46,15 +46,9 @@ public static class MainUI
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("Signature Test"))
+            if (ImGui.BeginTabItem("Sig / Hook Test"))
             {
-                SignatureUI.Draw();
-                ImGui.EndTabItem();
-            }
-
-            if (ImGui.BeginTabItem("Hook Test"))
-            {
-                HookUI.Draw();
+                AddressUI.Draw();
                 ImGui.EndTabItem();
             }
 
