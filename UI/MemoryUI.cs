@@ -40,82 +40,74 @@ public static unsafe class MemoryUI
 
         const int columns = 16;
 
-        var clipper = new ImGuiListClipperPtr(ImGuiNative.ImGuiListClipper_ImGuiListClipper());
-        clipper.Begin((int)MathF.Ceiling(length / (float)columns), ImGui.GetFontSize() + ImGui.GetStyle().ItemSpacing.Y);
-
-        while (clipper.Step())
+        HashSet<nint> readable = null;
+        using var clipper = new ImGuiEx.ListClipper((int)length, columns);
+        foreach (var i in clipper.Rows)
         {
-            var startOffset = clipper.DisplayStart * columns;
-            var memorySize = Math.Min((clipper.DisplayEnd - clipper.DisplayStart + 1) * columns, length - startOffset);
-            var readable = Debug.GetReadableMemory(address + startOffset, memorySize);
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+            if (clipper.IsStepped)
+                readable = Debug.GetReadableMemory(address + i, Math.Min((clipper.DisplayEnd - clipper.DisplayStart + 1) * columns, length - i));
+
+            ImGuiEx.TextCopyable(new Vector4(0.5f, 0.5f, 0.5f, 1), (address + i).ToString("X"));
+            ImGui.SameLine();
+
+            var str = string.Empty;
+            foreach (var j in clipper.Columns)
             {
-                var i = row * columns;
-                ImGuiEx.TextCopyable(new Vector4(0.5f, 0.5f, 0.5f, 1), (address + i).ToString("X"));
-                ImGui.SameLine();
+                var pos = i + j;
+                var ptrAddr = address + pos;
+                var ptr = (byte*)ptrAddr;
 
-                var str = string.Empty;
-                for (int j = 0; j < columns; j++)
+                if (readable!.Contains(ptrAddr))
                 {
-                    var pos = i + j;
-                    if (pos >= length) break;
-                    var ptrAddr = address + pos;
-                    var ptr = (byte*)ptrAddr;
+                    var b = *ptr;
 
-                    if (readable.Contains(ptrAddr))
+                    // It works I guess...
+                    var maxLength = ptrAddr switch
                     {
-                        var b = *ptr;
+                        _ when readable.Contains(ptrAddr + 8) => 8,
+                        _ when readable.Contains(ptrAddr + 4) => 4,
+                        _ when readable.Contains(ptrAddr + 2) => 2,
+                        _ => 1
+                    };
 
-                        // It works I guess...
-                        var maxLength = ptrAddr switch
-                        {
-                            _ when readable.Contains(ptrAddr + 8) => 8,
-                            _ when readable.Contains(ptrAddr + 4) => 4,
-                            _ when readable.Contains(ptrAddr + 2) => 2,
-                            _ => 1
-                        };
+                    var color = ptrAddr switch
+                    {
+                        _ when ptrAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
+                        _ when ptrAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
+                        _ => Vector4.One
+                    };
 
-                        var color = ptrAddr switch
-                        {
-                            _ when ptrAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
-                            _ when ptrAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
-                            _ => Vector4.One
-                        };
+                    ImGui.TextColored(color, b.ToString("X2"));
 
-                        ImGui.TextColored(color, b.ToString("X2"));
-
-                        if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
-                        {
-                            var a = *(nint*)ptr;
-                            if (Debug.CanReadMemory(a, 1))
-                                AddMemoryView(a);
-                        }
-
-                        ImGuiEx.SetItemTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
-
-                        if (b > 31)
-                            str += (char)b;
-                        else
-                            str += ".";
+                    if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
+                    {
+                        var a = *(nint*)ptr;
+                        if (Debug.CanReadMemory(a, 1))
+                            AddMemoryView(a);
                     }
+
+                    ImGuiEx.SetItemTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+
+                    if (b > 31)
+                        str += (char)b;
                     else
-                    {
-                        ImGui.TextUnformatted("??");
-                        str += " ";
-                    }
-
-                    ImGui.SameLine();
-
-                    if (j == columns - 1 || (j + 1) % 8 != 0) continue;
-                    ImGui.TextUnformatted("|");
-                    ImGui.SameLine();
+                        str += ".";
+                }
+                else
+                {
+                    ImGui.TextUnformatted("??");
+                    str += " ";
                 }
 
-                ImGui.TextUnformatted($" {str}");
-            }
-        }
+                ImGui.SameLine();
 
-        clipper.Destroy();
+                if (j == columns - 1 || (j + 1) % 8 != 0) continue;
+                ImGui.TextUnformatted("|");
+                ImGui.SameLine();
+            }
+
+            ImGui.TextUnformatted($" {str}");
+        }
 
         ImGui.PopFont();
     }
