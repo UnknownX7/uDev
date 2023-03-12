@@ -122,7 +122,8 @@ public static partial class Debug
     {
         public string Name { get; }
         private ICallGateSubscriber<IDalamudPlugin> GetPluginSubscriber { get; }
-        private ICallGateSubscriber<List<SigScannerWrapper.SignatureInfo>> GetSigInfosSubscriber { get; }
+        private ICallGateSubscriber<Hypostasis.Hypostasis.PluginState> GetPluginStateSubscriber { get; }
+        private ICallGateSubscriber<List<HypostasisMemberDebugInfo>> GetDebugInfosSubscriber { get; }
         private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
 
         public Assembly Assembly => Plugin is { } p ? Assembly.GetAssembly(p.GetType()) : null;
@@ -142,13 +143,13 @@ public static partial class Debug
             }
         }
 
-        public List<SigScannerWrapper.SignatureInfo> SigInfos
+        public List<HypostasisMemberDebugInfo> DebugInfos
         {
             get
             {
                 try
                 {
-                    var sigInfos = GetSigInfosSubscriber.InvokeFunc();
+                    var sigInfos = GetDebugInfosSubscriber.InvokeFunc();
                     var memberInfos = GetMemberInfosSubscriber.InvokeFunc();
                     for (int i = 0; i < sigInfos.Count; i++)
                     {
@@ -168,7 +169,8 @@ public static partial class Debug
         {
             Name = name;
             GetPluginSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPlugin");
-            GetSigInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<SigScannerWrapper.SignatureInfo>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetSigInfos");
+            GetPluginStateSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Hypostasis.Hypostasis.PluginState>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPluginState");
+            GetDebugInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<HypostasisMemberDebugInfo>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetDebugInfos");
             GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetMemberInfos");
         }
         //public void Dispose() { }

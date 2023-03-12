@@ -9,7 +9,7 @@ namespace uDev.UI;
 public static class MainUI
 {
     private static bool isVisible = true;
-    private static SigScannerWrapper.SignatureInfo selectedSigInfo = null;
+    private static HypostasisMemberDebugInfo selectedDebugInfo = null;
     private static Debug.PluginIPC selectedPlugin = null;
     private static readonly Dictionary<string, Debug.PluginIPC> plugins = new();
 
@@ -27,7 +27,7 @@ public static class MainUI
 
         ImGui.SetNextWindowSizeConstraints(ImGuiHelpers.ScaledVector2(1000, 650), new Vector2(9999));
         ImGui.Begin("uDev", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-        ImGuiEx.AddDonationHeader(2);
+        ImGuiEx.AddDonationHeader();
 
         if (ImGui.BeginTabBar("MainViewTabBar"))
         {
@@ -60,8 +60,7 @@ public static class MainUI
 
     private static void DrawPluginList()
     {
-        var pluginNames = DalamudApi.PluginInterface.GetData<HashSet<string>>(Hypostasis.Debug.HypostasisTag);
-        if (pluginNames == null) return;
+        if (!DalamudApi.PluginInterface.TryGetData<HashSet<string>>(Hypostasis.Debug.HypostasisTag, out var pluginNames)) return;
 
         lock (pluginNames)
         {
@@ -71,7 +70,7 @@ public static class MainUI
                     plugins.Add(name, ipc = new(name));
 
                 selectedPlugin = ipc;
-                selectedSigInfo = null;
+                selectedDebugInfo = null;
             }
         }
     }
@@ -80,7 +79,7 @@ public static class MainUI
     {
         if (selectedPlugin == null) return;
 
-        if (selectedSigInfo != null)
+        if (selectedDebugInfo != null)
         {
             if (!DrawBackButton())
                 DrawSelectedSigInfo();
@@ -105,39 +104,34 @@ public static class MainUI
 
     private static void DrawSignatureList()
     {
-        if (!ImGui.BeginTable("SignatureInfoTable", 4, ImGuiTableFlags.Borders)) return;
+        if (!ImGui.BeginTable("SignatureInfoTable", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollY)) return;
 
+        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.None, 0.5f);
         ImGui.TableSetupColumn("Signature", ImGuiTableColumnFlags.None, 1);
         ImGui.TableSetupColumn("Address", ImGuiTableColumnFlags.None, 0.3f);
-        ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.None, 0.2f);
+        ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.None, 0.25f);
         ImGui.TableHeadersRow();
 
-        var sigInfos = selectedPlugin.SigInfos;
-        if (sigInfos != null)
+        var debugInfos = selectedPlugin.DebugInfos;
+        if (debugInfos != null)
         {
-            foreach (var sigInfo in sigInfos)
+            foreach (var debugInfo in debugInfos)
             {
-                var offset = sigInfo.Offset != 0 ? $"({sigInfo.Offset})" : string.Empty;
-
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
 
-                ImGui.TextUnformatted($"{sigInfo.AssignableInfo?.Name}");
+                ImGui.TextUnformatted($"{debugInfo.AssignableInfo?.Name}");
                 if (ImGui.IsItemClicked())
-                    selectedSigInfo = sigInfo;
+                    selectedDebugInfo = debugInfo;
 
                 ImGui.TableNextColumn();
-                ImGui.TextUnformatted($"{sigInfo.Signature} {offset}");
+                ImGui.TextUnformatted($"{debugInfo.Signature}");
                 ImGui.TableNextColumn();
-                ImGui.TextUnformatted($"{sigInfo.Address:X}");
+                ImGui.TextUnformatted($"{debugInfo.Address:X}");
                 ImGui.TableNextColumn();
-                ImGui.TextUnformatted($"{sigInfo.SigType}");
+                ImGui.TextUnformatted($"{debugInfo.DebugType}");
             }
-        }
-        else
-        {
-            selectedPlugin = null;
         }
 
         ImGui.EndTable();
@@ -145,14 +139,14 @@ public static class MainUI
 
     private static void DrawSelectedSigInfo()
     {
-        ImGui.TextUnformatted($"Name: {selectedSigInfo.AssignableInfo?.Name}");
-        ImGui.TextUnformatted($"Signature: {selectedSigInfo.Signature}");
+        ImGui.TextUnformatted($"Name: {selectedDebugInfo.AssignableInfo?.Name}");
+        ImGui.TextUnformatted($"Signature: {selectedDebugInfo.Signature}");
         ImGui.TextUnformatted("Address:");
         ImGui.SameLine();
-        ImGuiEx.TextCopyable($"{selectedSigInfo.Address:X}");
-        ImGui.TextUnformatted($"Type: {selectedSigInfo.SigType}");
+        ImGuiEx.TextCopyable($"{selectedDebugInfo.Address:X}");
+        ImGui.TextUnformatted($"Type: {selectedDebugInfo.DebugType}");
 
-        if (selectedSigInfo.AssignableInfo is not { } assignableInfo) return;
+        if (selectedDebugInfo.AssignableInfo is not { } assignableInfo) return;
         var memberInfo = assignableInfo.MemberInfo;
         var memberDetails = new Debug.MemberDetails(memberInfo, assignableInfo.Object);
 
@@ -164,28 +158,27 @@ public static class MainUI
         if (memberDetails.IsPointer)
             ImGui.TextUnformatted($"Can Read Memory: {memberDetails.CanReadMemory}");
 
-        if (selectedSigInfo.SigAttribute != null)
+        if (selectedDebugInfo.SignatureInjectionAttribute != null)
         {
-            var attribute = selectedSigInfo.SigAttribute;
-            var ex = selectedSigInfo.ExAttribute;
+            var attribute = selectedDebugInfo.SignatureInjectionAttribute;
 
             ImGui.Spacing();
             ImGui.Spacing();
             ImGui.TextUnformatted("Attribute Info");
-            ImGui.TextUnformatted($"Scan Type: {attribute.ScanType}");
+            ImGui.TextUnformatted($"Scan Type: {(attribute.Static ? "Static" : "Text")}");
             ImGui.TextUnformatted($"Offset: {attribute.Offset}");
-            ImGui.TextUnformatted($"Fallibility: {attribute.Fallibility}");
+            ImGui.TextUnformatted($"Required: {attribute.Required}");
 
-            if (selectedSigInfo.SigType == SigScannerWrapper.SignatureInfo.SignatureType.Hook)
+            if (selectedDebugInfo.DebugType == HypostasisMemberDebugInfo.MemberDebugType.Hook)
             {
                 ImGui.TextUnformatted($"Detour: {attribute.DetourName}");
-                ImGui.TextUnformatted($"Enable: {ex.EnableHook}");
-                ImGui.TextUnformatted($"Dispose: {ex.DisposeHook}");
+                ImGui.TextUnformatted($"Enable: {attribute.EnableHook}");
+                ImGui.TextUnformatted($"Dispose: {attribute.DisposeHook}");
             }
         }
-        else if (selectedSigInfo.CSAttribute != null)
+        else if (selectedDebugInfo.CSInjectionAttribute != null)
         {
-            var attribute = selectedSigInfo.CSAttribute;
+            var attribute = selectedDebugInfo.CSInjectionAttribute;
 
             ImGui.Spacing();
             ImGui.Spacing();
@@ -217,7 +210,7 @@ public static class MainUI
     private static bool DrawBackButton()
     {
         if (!ImGuiEx.FontButton(FontAwesomeIcon.ArrowLeft.ToIconString(), UiBuilder.IconFont)) return false;
-        selectedSigInfo = null;
+        selectedDebugInfo = null;
         return true;
     }
 }

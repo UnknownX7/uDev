@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using ImGuiNET;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using ImGuiNET;
 
 namespace uDev.UI;
 
@@ -33,6 +34,10 @@ public static class ReflectionUI
         var type = objectDetails.Value.GetType();
         DrawObjectMembersDetails(objectDetails.Value, type.GetMembers(defaultBindingFlags), type.IsClass);
     }
+
+    public static void DrawObjectDetails(object o) => DrawObjectMembersDetails(o, o.GetType().GetMembers(defaultBindingFlags), o.GetType().IsClass);
+
+    public static void DrawStaticClassDetails(Type t) => DrawObjectMembersDetails(null, t.GetMembers(defaultBindingFlags), true);
 
     public static void DrawObjectMembersDetails(object o, IEnumerable<MemberInfo> members, bool isClass)
     {

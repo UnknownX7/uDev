@@ -26,7 +26,8 @@ public static class AddressUI
         ["ulong"] = typeof(ulong),
         ["nint"] = typeof(nint),
         ["nuint"] = typeof(nuint),
-        ["float"] = typeof(float)
+        ["float"] = typeof(float),
+        ["string"] = typeof(string)
     };
 
     private static nint address = DalamudApi.SigScanner.BaseTextAddress;
@@ -38,7 +39,7 @@ public static class AddressUI
 
     private static string signature = string.Empty;
     private static readonly string[] argTypes = typeDictionary.Select(kv => kv.Key).ToArray();
-    private static int ret = 1;
+    private static int ret = 6;
     private static readonly int[] args = new int[20];
     private static object hook;
     private static bool logChat = false;
@@ -120,6 +121,11 @@ public static class AddressUI
                 address = nint.Zero;
             }
         }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Pop Out Memory View") && address != nint.Zero)
+            MemoryUI.AddMemoryView(address);
     }
 
     private static void DrawHookTest()
@@ -190,12 +196,13 @@ public static class AddressUI
             ImGui.EndDisabled();
 
         ImGui.SameLine();
-        ImGui.Button("Reset Delegate");
+        ImGui.Button("Reset Delegate\uE051\uE051");
         if (ImGuiEx.IsItemDoubleClicked())
         {
-            ret = 0;
-            for (int i = 0; i < args.Length; i++)
+            ret = 6;
+            for (int i = 1; i < args.Length; i++)
                 args[i] = 0;
+            args[0] = 8;
         }
         ImGui.SameLine();
         ImGui.Checkbox("Log to Chat", ref logChat);

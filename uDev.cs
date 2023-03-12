@@ -12,7 +12,11 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
 
     public uDev(DalamudPluginInterface pluginInterface) : base(pluginInterface) { }
 
-    protected override void Initialize() => DalamudApi.SigScanner.Inject(typeof(Common));
+    protected override void Initialize()
+    {
+        DalamudApi.SigScanner.Inject(typeof(Common));
+        Hypostasis.Debug.DebugHypostasis = true;
+    }
 
     protected override void ToggleConfig() => MainUI.IsVisible ^= true;
 
