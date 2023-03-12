@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using Dalamud.Interface;
 using ImGuiNET;
+using Lumina.Excel;
 
 namespace uDev.UI;
 
@@ -12,6 +15,8 @@ public static class MainUI
     private static HypostasisMemberDebugInfo selectedDebugInfo = null;
     private static Debug.PluginIPC selectedPlugin = null;
     private static readonly Dictionary<string, Debug.PluginIPC> plugins = new();
+    private static readonly Type[] luminaTypes = Assembly.Load("Lumina.Excel").GetTypes<ExcelRow>().ToArray();
+    private static Type selectedLuminaType;
 
     public static bool IsVisible
     {
@@ -49,6 +54,35 @@ public static class MainUI
             if (ImGui.BeginTabItem("Sig / Hook Test"))
             {
                 AddressUI.Draw();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("ImGui Window Memory"))
+            {
+                unsafe
+                {
+                    var ptr = ImGuiEx.GetCurrentWindow();
+                    ImGui.BeginChild("ImGuiMemoryView");
+                    MemoryUI.DrawMemoryDetails((nint)ptr, 0x5000);
+                    ImGui.EndChild();
+                    ImGui.EndTabItem();
+                }
+            }
+
+            if (ImGui.BeginTabItem("Excel Sheets"))
+            {
+                ImGui.BeginChild("SheetList", new Vector2(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
+                foreach (var t in luminaTypes.Where(t => ImGui.Selectable(t.Name, t.Name == selectedPlugin?.Name)))
+                    selectedLuminaType = t;
+                ImGui.EndChild();
+
+                if (selectedLuminaType != null)
+                {
+                    ImGui.SameLine();
+                    var methodInfo = typeof(ImGuiEx).GetMethod(nameof(ImGuiEx.ExcelSheetTable))?.MakeGenericMethod(selectedLuminaType);
+                    methodInfo?.Invoke(null, new object[] { "ExcelSheetBrowser" });
+                }
+
                 ImGui.EndTabItem();
             }
 
