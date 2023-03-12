@@ -36,9 +36,8 @@ public static unsafe class MemoryUI
 
     public static void DrawMemoryDetails(nint address, long length)
     {
-        ImGui.PushFont(UiBuilder.MonoFont);
-
         const int columns = 16;
+        using var _ = ImGuiEx.FontBlock.Begin(UiBuilder.MonoFont);
 
         HashSet<nint> readable = null;
         using var clipper = new ImGuiEx.ListClipper((int)length, columns);
@@ -108,8 +107,6 @@ public static unsafe class MemoryUI
 
             ImGui.TextUnformatted($" {str}");
         }
-
-        ImGui.PopFont();
     }
 
     private static void DrawMemoryDetailsWindow(MemoryView view)

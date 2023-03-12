@@ -146,9 +146,8 @@ public static class AddressUI
                 break;
             }
 
-            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, Vector2.Zero);
-            ImGui.SameLine();
-            ImGui.PopStyleVar();
+            using (ImGuiEx.StyleVarBlock.Begin(ImGuiStyleVar.ItemSpacing, Vector2.Zero))
+                ImGui.SameLine();
             ImGui.TextUnformatted(",");
             ImGui.SameLine();
         }
@@ -226,6 +225,7 @@ public static class AddressUI
 
     private static void TypeCombo(string label, ref int current)
     {
+        using var _ = ImGuiEx.StyleVarBlock.Begin(ImGuiStyleVar.PopupBorderSize, 1);
         var preview = argTypes[current];
         var inputWidth = ImGui.CalcTextSize(preview).X + ImGui.GetStyle().FramePadding.X * 2;
         ImGui.SetNextItemWidth(inputWidth);
