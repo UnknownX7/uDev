@@ -10,7 +10,6 @@ namespace uDev.UI;
 
 public static class ReflectionUI
 {
-    public const BindingFlags defaultBindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private const MemberTypes whitelistedMemberTypes = MemberTypes.Field | MemberTypes.Property;
 
     public static void DrawAssemblyDetails(Assembly assembly)
@@ -24,7 +23,7 @@ public static class ReflectionUI
             ImGui.TextColored(new Vector4(0.25f, 0.5f, 1, 1), type.Name);
 
             if (!open) continue;
-            DrawObjectMembersDetails(null, type.GetMembers(defaultBindingFlags), type.IsClass);
+            DrawObjectMembersDetails(null, type.GetAllMembers(), type.IsClass);
             ImGui.TreePop();
         }
     }
@@ -32,12 +31,12 @@ public static class ReflectionUI
     public static void DrawObjectDetails(Debug.MemberDetails objectDetails)
     {
         var type = objectDetails.Value.GetType();
-        DrawObjectMembersDetails(objectDetails.Value, type.GetMembers(defaultBindingFlags), type.IsClass);
+        DrawObjectMembersDetails(objectDetails.Value, type.GetAllMembers(), type.IsClass);
     }
 
-    public static void DrawObjectDetails(object o) => DrawObjectMembersDetails(o, o.GetType().GetMembers(defaultBindingFlags), o.GetType().IsClass);
+    public static void DrawObjectDetails(object o) => DrawObjectMembersDetails(o, o.GetType().GetAllMembers(), o.GetType().IsClass);
 
-    public static void DrawStaticClassDetails(Type t) => DrawObjectMembersDetails(null, t.GetMembers(defaultBindingFlags), true);
+    public static void DrawStaticClassDetails(Type t) => DrawObjectMembersDetails(null, t.GetAllMembers(), true);
 
     public static void DrawObjectMembersDetails(object o, IEnumerable<MemberInfo> members, bool isClass)
     {

@@ -5,9 +5,8 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Dalamud.Plugin;
-using static Hypostasis.Util;
-using uDev.UI;
 using Dalamud.Plugin.Ipc;
+using static Hypostasis.Util;
 
 namespace uDev;
 
@@ -58,8 +57,8 @@ public static partial class Debug
                         try
                         {
                             var oType = o.GetType();
-                            var countMember = oType.GetMember("Count", ReflectionUI.defaultBindingFlags | BindingFlags.IgnoreCase)
-                                .Concat(oType.GetMember("Length", ReflectionUI.defaultBindingFlags | BindingFlags.IgnoreCase))
+                            var countMember = oType.GetMember("Count", AllMembersBindingFlags | BindingFlags.IgnoreCase)
+                                .Concat(oType.GetMember("Length", AllMembersBindingFlags | BindingFlags.IgnoreCase))
                                 .First();
                             var countInfo = new AssignableInfo(o, countMember);
                             var count = (int)countInfo.GetValue();

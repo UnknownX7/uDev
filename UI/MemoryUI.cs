@@ -109,6 +109,8 @@ public static unsafe class MemoryUI
         }
     }
 
+    public static void DrawMemoryDetails(void* ptr, long length) => DrawMemoryDetails((nint)ptr, length);
+
     private static void DrawMemoryDetailsWindow(MemoryView view)
     {
         var visible = true;

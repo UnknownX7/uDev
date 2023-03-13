@@ -34,9 +34,9 @@ public static class MainUI
         ImGui.Begin("uDev", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         ImGuiEx.AddDonationHeader();
 
-        if (ImGui.BeginTabBar("MainViewTabBar"))
+        if (ImGui.BeginTabBar("MainUITabBar"))
         {
-            if (ImGui.BeginTabItem("Browse Plugins"))
+            if (ImGui.BeginTabItem("Browse Hypostasis Plugins"))
             {
                 ImGui.BeginChild("PluginList", new Vector2(150 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
                 DrawPluginList();
@@ -57,18 +57,6 @@ public static class MainUI
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("ImGui Window Memory"))
-            {
-                unsafe
-                {
-                    var ptr = ImGuiEx.GetCurrentWindow();
-                    ImGui.BeginChild("ImGuiMemoryView");
-                    MemoryUI.DrawMemoryDetails((nint)ptr, 0x5000);
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
-                }
-            }
-
             if (ImGui.BeginTabItem("Excel Sheets"))
             {
                 ImGui.BeginChild("SheetList", new Vector2(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
@@ -84,6 +72,34 @@ public static class MainUI
                 }
 
                 ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Addon Agents"))
+            {
+                AgentUI.Draw();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Game Object Editor"))
+            {
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Assembly Editor"))
+            {
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("ImGui Window Memory"))
+            {
+                unsafe
+                {
+                    var ptr = ImGuiEx.GetCurrentWindow();
+                    ImGui.BeginChild("ImGuiMemoryView");
+                    MemoryUI.DrawMemoryDetails(ptr, 0x5000);
+                    ImGui.EndChild();
+                    ImGui.EndTabItem();
+                }
             }
 
             ImGui.EndTabBar();
