@@ -46,7 +46,15 @@ public static unsafe class MemoryUI
             if (clipper.IsStepped)
                 readable = Debug.GetReadableMemory(address + i, Math.Min((clipper.DisplayEnd - clipper.DisplayStart + 1) * columns, length - i));
 
-            ImGuiEx.TextCopyable(new Vector4(0.5f, 0.5f, 0.5f, 1), (address + i).ToString("X"));
+            var lineAddr = address + i;
+            var color = lineAddr switch
+            {
+                _ when lineAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
+                _ when lineAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
+                _ => new Vector4(0.6f, 0.6f, 0.7f, 1)
+            };
+
+            ImGuiEx.TextCopyable(color, lineAddr.ToString("X"));
             ImGui.SameLine();
 
             var str = string.Empty;
@@ -69,14 +77,7 @@ public static unsafe class MemoryUI
                         _ => 1
                     };
 
-                    var color = ptrAddr switch
-                    {
-                        _ when ptrAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
-                        _ when ptrAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
-                        _ => Vector4.One
-                    };
-
-                    ImGui.TextColored(color, b.ToString("X2"));
+                    ImGui.TextColored(b != 0 ? Vector4.One : new Vector4(0.5f, 0.5f, 0.5f, 1), b.ToString("X2"));
 
                     if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                     {
@@ -94,7 +95,7 @@ public static unsafe class MemoryUI
                 }
                 else
                 {
-                    ImGui.TextUnformatted("??");
+                    ImGui.TextColored(new Vector4(0.75f, 0.5f, 0.5f, 1), "??");
                     str += " ";
                 }
 
