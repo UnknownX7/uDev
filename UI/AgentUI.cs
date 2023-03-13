@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -42,7 +41,7 @@ public static unsafe class AgentUI
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var addon = (&LoadedAddons->AtkUnitEntries)[i];
-            var name = Marshal.PtrToStringAnsi((nint)addon->Name);
+            var name = ((nint)addon->Name).ReadCString();
             if (!ImGui.Selectable(name, addon->ID == selectedAddonID)) continue;
             selectedAddonID = addon->ID;
         }
