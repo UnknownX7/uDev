@@ -94,12 +94,9 @@ public static class MainUI
             {
                 unsafe
                 {
-                    var ptr = ImGuiEx.GetCurrentWindow();
-                    ImGui.BeginChild("ImGuiMemoryView");
-                    MemoryUI.DrawMemoryDetails(ptr, 0x5000);
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
+                    MemoryUI.DrawMemoryDetailsChild("ImGuiMemoryView", ImGuiEx.GetCurrentWindow(), 0x5000);
                 }
+                ImGui.EndTabItem();
             }
 
             ImGui.EndTabBar();
@@ -248,9 +245,7 @@ public static class MainUI
 
         if (memberDetails.Length > 0 && ImGui.BeginTabItem("Memory Details"))
         {
-            ImGui.BeginChild("MemoryDetails", ImGui.GetContentRegionAvail(), true);
-            MemoryUI.DrawMemoryDetails(memberDetails.Address, memberDetails.Length);
-            ImGui.EndChild();
+            MemoryUI.DrawMemoryDetailsChild("MemoryDetails", memberDetails.Address, memberDetails.Length);
             ImGui.EndTabItem();
         }
 

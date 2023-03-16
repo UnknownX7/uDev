@@ -10,7 +10,7 @@ namespace uDev.UI;
 public static unsafe class AgentUI
 {
     private static ushort selectedAddonID;
-    private static uint selectedAgentID;
+    private static uint? selectedAgentID;
 
     private static RaptureAtkUnitManager* RaptureAtkUnitManager => &Common.UIModule->GetRaptureAtkModule()->RaptureAtkUnitManager;
     private static AtkUnitList* LoadedAddons => &RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
@@ -41,6 +41,7 @@ public static unsafe class AgentUI
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var addon = (&LoadedAddons->AtkUnitEntries)[i];
+            using var __ = ImGuiEx.DisabledBlock.Begin(DalamudApi.GameGui.FindAgentInterface(addon) == nint.Zero);
             var name = ((nint)addon->Name).ReadCString();
             if (!ImGui.Selectable(name, addon->ID == selectedAddonID)) continue;
             selectedAddonID = addon->ID;
@@ -58,9 +59,7 @@ public static unsafe class AgentUI
         {
             var id = GetAgentID(agent);
             ImGui.TextUnformatted($"[#{id}] {(AgentId)id}");
-            ImGui.BeginChild("AgentMemoryDetails", ImGui.GetContentRegionAvail(), true);
-            MemoryUI.DrawMemoryDetails(agent, 0x500);
-            ImGui.EndChild();
+            MemoryUI.DrawMemoryDetailsChild("AgentMemoryDetails", agent, 0x500);
         }
         else
         {
@@ -85,14 +84,12 @@ public static unsafe class AgentUI
         }
         ImGui.EndChild();
 
-        if (selectedAgentID == 0) return;
+        if (selectedAgentID == null) return;
 
         ImGui.SameLine();
 
-        ImGui.BeginChild("AgentMemoryDetails", ImGui.GetContentRegionAvail(), true);
-        var selectedAgent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(selectedAgentID);
-        MemoryUI.DrawMemoryDetails(selectedAgent, 0x500);
-        ImGui.EndChild();
+        var selectedAgent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(selectedAgentID.Value);
+        MemoryUI.DrawMemoryDetailsChild("AgentMemoryDetails", selectedAgent, 0x500);
     }
 
     private static uint GetAgentID(nint address)

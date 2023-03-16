@@ -112,6 +112,15 @@ public static unsafe class MemoryUI
 
     public static void DrawMemoryDetails(void* ptr, long length) => DrawMemoryDetails((nint)ptr, length);
 
+    public static void DrawMemoryDetailsChild(string id, nint address, long length)
+    {
+        ImGui.BeginChild(id, Vector2.Zero, true);
+        DrawMemoryDetails(address, length);
+        ImGui.EndChild();
+    }
+
+    public static void DrawMemoryDetailsChild(string id, void* ptr, long length) => DrawMemoryDetailsChild(id, (nint)ptr, length);
+
     private static void DrawMemoryDetailsWindow(MemoryView view)
     {
         var visible = true;

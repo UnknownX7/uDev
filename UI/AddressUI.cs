@@ -56,9 +56,7 @@ public static class AddressUI
         ImGui.Spacing();
         DrawHookTest();
         if (!Debug.CanReadMemory(address, 1)) return;
-        ImGui.BeginChild("MemoryDetails", ImGui.GetContentRegionAvail(), true);
-        MemoryUI.DrawMemoryDetails(address, 0x2000);
-        ImGui.EndChild();
+        MemoryUI.DrawMemoryDetailsChild("MemoryDetails", address, 0x2000);
     }
 
     private static void DrawSignatureTest()
