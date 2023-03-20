@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -11,6 +12,8 @@ public static unsafe class AgentUI
 {
     private static ushort selectedAddonID;
     private static uint? selectedAgentID;
+    private static string addonSearch = string.Empty;
+    private static string agentSearch = string.Empty;
 
     private static RaptureAtkUnitManager* RaptureAtkUnitManager => &Common.UIModule->GetRaptureAtkModule()->RaptureAtkUnitManager;
     private static AtkUnitList* LoadedAddons => &RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
@@ -36,17 +39,22 @@ public static unsafe class AgentUI
 
     private static void DrawAddonTab()
     {
-        ImGui.BeginChild("AddonList", new Vector2(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
+        var width = 250 * ImGuiHelpers.GlobalScale;
+        ImGui.BeginGroup();
+        ImGui.SetNextItemWidth(width);
+        ImGui.InputTextWithHint("##Search", "Search", ref addonSearch, 128, ImGuiInputTextFlags.AutoSelectAll);
+        ImGui.BeginChild("AddonList", new Vector2(width, 0), true);
         for (int i = 0; i < LoadedAddons->Count; i++)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var addon = (&LoadedAddons->AtkUnitEntries)[i];
             using var __ = ImGuiEx.DisabledBlock.Begin(DalamudApi.GameGui.FindAgentInterface(addon) == nint.Zero);
             var name = ((nint)addon->Name).ReadCString();
-            if (!ImGui.Selectable(name, addon->ID == selectedAddonID)) continue;
+            if (!name.Contains(addonSearch, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, addon->ID == selectedAddonID)) continue;
             selectedAddonID = addon->ID;
         }
         ImGui.EndChild();
+        ImGui.EndGroup();
 
         if (selectedAddonID == 0) return;
 
@@ -71,18 +79,24 @@ public static unsafe class AgentUI
 
     private static void DrawAgentTab()
     {
-        ImGui.BeginChild("AgentList", new Vector2(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
+        var width = 250 * ImGuiHelpers.GlobalScale;
+        ImGui.BeginGroup();
+        ImGui.SetNextItemWidth(width);
+        ImGui.InputTextWithHint("##Search", "Search", ref agentSearch, 128, ImGuiInputTextFlags.AutoSelectAll);
+        ImGui.BeginChild("AgentList", new Vector2(width, 0), true);
         var i = 0u;
         while (true)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(i);
             if (agent == null) break;
-            if (ImGui.Selectable($"[#{i}] {(AgentId)i}", i == selectedAgentID))
+            var name = $"[#{i}] {(AgentId)i}";
+            if (name.Contains(agentSearch, StringComparison.CurrentCultureIgnoreCase) && ImGui.Selectable(name, i == selectedAgentID))
                 selectedAgentID = i;
             i++;
         }
         ImGui.EndChild();
+        ImGui.EndGroup();
 
         if (selectedAgentID == null) return;
 

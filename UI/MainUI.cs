@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using Dalamud.Data;
 using Dalamud.Interface;
 using ImGuiNET;
 using Lumina.Excel;
@@ -17,6 +18,10 @@ public static class MainUI
     private static readonly Dictionary<string, Debug.PluginIPC> plugins = new();
     private static readonly Type[] luminaTypes = Assembly.Load("Lumina.Excel").GetTypes<ExcelRow>().ToArray();
     private static Type selectedLuminaType;
+    private static Type[] luminaTypeSearchCache = null;
+    private static string sheetSearch = string.Empty;
+    private static bool allSheetSearch = false;
+    private static bool setSearchFocus = false;
 
     public static bool IsVisible
     {
@@ -59,18 +64,7 @@ public static class MainUI
 
             if (ImGui.BeginTabItem("Excel Sheets"))
             {
-                ImGui.BeginChild("SheetList", new Vector2(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().Y), true);
-                foreach (var t in luminaTypes.Where(t => ImGui.Selectable(t.Name, t.Name == selectedPlugin?.Name)))
-                    selectedLuminaType = t;
-                ImGui.EndChild();
-
-                if (selectedLuminaType != null)
-                {
-                    ImGui.SameLine();
-                    var methodInfo = typeof(ImGuiEx).GetMethod(nameof(ImGuiEx.ExcelSheetTable))?.MakeGenericMethod(selectedLuminaType);
-                    methodInfo?.Invoke(null, new object[] { "ExcelSheetBrowser" });
-                }
-
+                DrawExcelSheetBrowser();
                 ImGui.EndTabItem();
             }
 
@@ -265,5 +259,74 @@ public static class MainUI
         if (!ImGuiEx.FontButton(FontAwesomeIcon.ArrowLeft.ToIconString(), UiBuilder.IconFont)) return false;
         selectedDebugInfo = null;
         return true;
+    }
+
+    private static void DrawExcelSheetBrowser()
+    {
+        var width = 200 * ImGuiHelpers.GlobalScale;
+        ImGui.BeginGroup();
+        ImGui.SetNextItemWidth(width);
+
+        if (allSheetSearch)
+        {
+            if (ImGui.InputTextWithHint("##AllSearch", "Contains", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue))
+                luminaTypeSearchCache = null;
+            ImGui.GetWindowDrawList().AddRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ImGui.GetColorU32(ImGuiCol.TabActive), ImGui.GetStyle().FrameRounding);
+        }
+        else
+        {
+            if (ImGui.InputTextWithHint("##Search", "Search", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll))
+                luminaTypeSearchCache = null;
+        }
+
+        if (setSearchFocus)
+        {
+            ImGui.SetKeyboardFocusHere(-1);
+            setSearchFocus = false;
+        }
+
+        if (ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
+        {
+            allSheetSearch ^= true;
+            luminaTypeSearchCache = luminaTypes;
+            sheetSearch = string.Empty;
+            setSearchFocus = true;
+        }
+
+        luminaTypeSearchCache ??= allSheetSearch ? SearchAllSheets(sheetSearch) : luminaTypes.Where(t => t.Name.Contains(sheetSearch, StringComparison.CurrentCultureIgnoreCase)).ToArray();
+
+        ImGui.BeginChild("SheetList", new Vector2(width, ImGui.GetContentRegionAvail().Y), true);
+        foreach (var t in luminaTypeSearchCache.Where(t => ImGui.Selectable(t.Name, t == selectedLuminaType)))
+            selectedLuminaType = t;
+        ImGui.EndChild();
+        ImGui.EndGroup();
+
+        if (selectedLuminaType == null) return;
+        ImGui.SameLine();
+        var methodInfo = typeof(ImGuiEx).GetMethod(nameof(ImGuiEx.ExcelSheetTable))?.MakeGenericMethod(selectedLuminaType);
+        methodInfo?.Invoke(null, new object[] { "ExcelSheetBrowser" });
+    }
+
+    private static Type[] SearchAllSheets(string search)
+    {
+        static string GetObjectAsString(object o) => o switch
+        {
+            ILazyRow lazyRow => $"{lazyRow.GetType().GenericTypeArguments[0].Name}#{lazyRow.Row}",
+            _ => o?.ToString() ?? string.Empty
+        };
+
+        static IEnumerable<string> GetPropertiesAsStrings(object o)
+        {
+            foreach (var propertyInfo in o.GetType().GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public))
+                yield return GetObjectAsString(propertyInfo.GetValue(o));
+        }
+
+        static IEnumerable<object> GetSheet(Type t)
+        {
+            var methodInfo = typeof(DataManager).GetMethod(nameof(DataManager.GetExcelSheet), BindingFlags.Instance | BindingFlags.Public, Array.Empty<Type>())?.MakeGenericMethod(t);
+            return (IEnumerable<object>)methodInfo?.Invoke(DalamudApi.DataManager, null);
+        }
+
+        return luminaTypes.Where(t => GetSheet(t) is { } e && e.Any(o => GetPropertiesAsStrings(o).Any(str => str.Contains(search)))).ToArray();
     }
 }

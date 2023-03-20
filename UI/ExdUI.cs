@@ -13,6 +13,7 @@ public static unsafe class ExdUI
     private static readonly uint maxSheetID = 1000u;
     private static uint selectedSheet;
     private static uint selectedRow;
+    private static string search = string.Empty;
 
     private static ExdModule* ExdModule => Framework.Instance()->ExdModule;
     private static ExcelModule* ExcelModule => ExdModule->ExcelModule;
@@ -33,16 +34,24 @@ public static unsafe class ExdUI
         var rowSize = *(uint*)((nint)sheetPtr + 0x3C);
         var maxRow = sheetPtr->RowCount;
 
-        ImGui.BeginChild("SheetList", new Vector2(250 * ImGuiHelpers.GlobalScale, 0), true);
+        var width = 250 * ImGuiHelpers.GlobalScale;
+        ImGui.BeginGroup();
+        ImGui.SetNextItemWidth(width);
+        ImGui.InputTextWithHint("##Search", "Search", ref search, 128, ImGuiInputTextFlags.AutoSelectAll);
+        ImGui.BeginChild("SheetList", new Vector2(width, 0), true);
         for (uint i = 0; i < maxSheetID; i++)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var sheet = ExcelModule->GetSheetByIndex(i);
-            if (sheet == null || !ImGui.Selectable($"[{i}] {((nint)sheet->SheetName).ReadCString()}", i == selectedSheet)) continue;
+            if (sheet == null) continue;
+
+            var name = $"[#{i}] {((nint)sheet->SheetName).ReadCString()}";
+            if (!name.Contains(search, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, i == selectedSheet)) continue;
             selectedSheet = i;
             selectedRow = 0;
         }
         ImGui.EndChild();
+        ImGui.EndGroup();
 
         ImGui.SameLine();
 
