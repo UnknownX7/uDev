@@ -82,11 +82,12 @@ public static unsafe class MemoryUI
                     if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                     {
                         var a = *(nint*)ptr;
-                        if (Debug.CanReadMemory(a, 1))
+                        if (Debug.CanReadMemory(a))
                             AddMemoryView(a);
                     }
 
-                    ImGuiEx.SetItemTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
 
                     if (b > 31)
                         str += (char)b;
@@ -136,7 +137,17 @@ public static unsafe class MemoryUI
 
     private static string GetPointerTooltip(byte* ptr, long maxLength)
     {
-        var tooltip = $"Byte: {*(sbyte*)ptr} | {*ptr}";
+        var b = *ptr;
+        var tooltip = $"Byte: {*(sbyte*)ptr} | {b}";
+
+        if (b > 1)
+        {
+            tooltip += " (0b";
+            for (int i = 7; i >= 0; i--)
+                tooltip += (b >> i) & 1;
+            tooltip += ')';
+        }
+
         if (maxLength < 2) return tooltip;
         tooltip += $"\nShort: {*(short*)ptr} | {*(ushort*)ptr}";
         if (maxLength < 4) return tooltip;

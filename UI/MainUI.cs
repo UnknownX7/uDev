@@ -74,6 +74,12 @@ public static class MainUI
                 ImGui.EndTabItem();
             }
 
+            if (ImGui.BeginTabItem("Exd Module"))
+            {
+                ExdUI.Draw();
+                ImGui.EndTabItem();
+            }
+
             if (ImGui.BeginTabItem("Addon Agents"))
             {
                 AgentUI.Draw();
@@ -82,6 +88,8 @@ public static class MainUI
 
             if (ImGui.BeginTabItem("Game Object Editor"))
             {
+                if (ImGui.Button("test"))
+                    ImGuiEx.FloatingText("ariel sucks");
                 ImGui.EndTabItem();
             }
 

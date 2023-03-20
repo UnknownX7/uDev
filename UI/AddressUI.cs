@@ -55,7 +55,7 @@ public static class AddressUI
         ImGui.Spacing();
         ImGui.Spacing();
         DrawHookTest();
-        if (!Debug.CanReadMemory(address, 1)) return;
+        if (!Debug.CanReadMemory(address)) return;
         MemoryUI.DrawMemoryDetailsChild("MemoryDetails", address, 0x2000);
     }
 

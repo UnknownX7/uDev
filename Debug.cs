@@ -190,7 +190,7 @@ public static partial class Debug
     [LibraryImport("kernel32.dll")]
     private static partial int VirtualQuery(nint lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, int dwLength);
 
-    public static unsafe bool CanReadMemory(nint address, long size)
+    public static unsafe bool CanReadMemory(nint address, long size = 1)
     {
         if (address == 0 || size <= 0)
             return false;
@@ -209,6 +209,8 @@ public static partial class Debug
 
         return true;
     }
+
+    public static unsafe bool CanReadMemory(void* ptr, long size = 1) => CanReadMemory((nint)ptr, size);
 
     public static unsafe nint GetMaxReadableMemory(nint address, long size)
     {
@@ -231,6 +233,8 @@ public static partial class Debug
 
         return max;
     }
+
+    public static unsafe nint GetMaxReadableMemory(void* ptr, long size) => GetMaxReadableMemory((nint)ptr, size);
 
     public static unsafe HashSet<nint> GetReadableMemory(nint address, long size)
     {
@@ -259,4 +263,6 @@ public static partial class Debug
 
         return set;
     }
+
+    public static unsafe HashSet<nint> GetReadableMemory(void* ptr, long size) => GetReadableMemory((nint)ptr, size);
 }

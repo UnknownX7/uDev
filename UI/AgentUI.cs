@@ -75,7 +75,7 @@ public static unsafe class AgentUI
         var i = 0u;
         while (true)
         {
-            using var _ = ImGuiEx.IDBlock.Begin((int)i);
+            using var _ = ImGuiEx.IDBlock.Begin(i);
             var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(i);
             if (agent == null) break;
             if (ImGui.Selectable($"[#{i}] {(AgentId)i}", i == selectedAgentID))
