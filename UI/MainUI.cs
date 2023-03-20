@@ -82,8 +82,8 @@ public static class MainUI
 
             if (ImGui.BeginTabItem("Game Object Editor"))
             {
-                if (ImGui.Button("test"))
-                    ImGuiEx.FloatingText("ariel sucks");
+                if (ImGui.Button("Initialize"))
+                    ImGuiEx.FloatingText("fuck you ariel");
                 ImGui.EndTabItem();
             }
 
@@ -312,6 +312,7 @@ public static class MainUI
         static string GetObjectAsString(object o) => o switch
         {
             ILazyRow lazyRow => $"{lazyRow.GetType().GenericTypeArguments[0].Name}#{lazyRow.Row}",
+            //Lumina.Text.SeString seString => seString.ToDalamudString().ToString(),
             _ => o?.ToString() ?? string.Empty
         };
 
