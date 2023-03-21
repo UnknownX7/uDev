@@ -269,13 +269,13 @@ public static class MainUI
 
         if (allSheetSearch)
         {
-            if (ImGui.InputTextWithHint("##AllSearch", "Contains", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue))
+            if (ImGui.InputTextWithHint("##AllSearch", "\uE052 Contains", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue))
                 luminaTypeSearchCache = null;
             ImGui.GetWindowDrawList().AddRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ImGui.GetColorU32(ImGuiCol.TabActive), ImGui.GetStyle().FrameRounding);
         }
         else
         {
-            if (ImGui.InputTextWithHint("##Search", "Search", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll))
+            if (ImGui.InputTextWithHint("##Search", "\uE052 Search", ref sheetSearch, 128, ImGuiInputTextFlags.AutoSelectAll))
                 luminaTypeSearchCache = null;
         }
 
