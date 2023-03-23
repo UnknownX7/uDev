@@ -57,7 +57,7 @@ public static unsafe class ExdUI
 
         using var __ = ImGuiEx.GroupBlock.Begin();
         ImGui.BeginChild("SheetMemoryDetails", new Vector2(0, ImGui.GetContentRegionAvail().Y / 2), true);
-        MemoryUI.DrawMemoryDetails(sheetPtr, sizeof(ExcelSheet));
+        MemoryUI.DrawMemoryEditor(sheetPtr, sizeof(ExcelSheet));
         ImGui.EndChild();
 
         ImGui.SetNextItemWidth(250 * ImGuiHelpers.GlobalScale);
@@ -72,7 +72,7 @@ public static unsafe class ExdUI
             return;
         }
 
-        MemoryUI.DrawMemoryDetailsChild("SheetRowMemoryDetails", *(void**)rowPtr, rowSize);
+        MemoryUI.DrawMemoryEditorChild(*(void**)rowPtr, rowSize);
     }
 
     private static ExcelSheet* GetSheetPointer(uint sheetID) => ExcelModule->GetSheetByIndex(sheetID);

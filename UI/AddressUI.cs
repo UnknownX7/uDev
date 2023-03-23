@@ -56,7 +56,7 @@ public static class AddressUI
         ImGui.Spacing();
         DrawHookTest();
         if (!Debug.CanReadMemory(address)) return;
-        MemoryUI.DrawMemoryDetailsChild("MemoryDetails", address, 0x2000);
+        MemoryUI.DrawMemoryEditorChild(address, 0x200, true);
     }
 
     private static void DrawSignatureTest()
@@ -122,8 +122,8 @@ public static class AddressUI
 
         ImGui.SameLine();
 
-        if (ImGui.Button("Pop Out Memory View") && address != nint.Zero)
-            MemoryUI.AddMemoryView(address);
+        if (ImGui.Button("Pop Out Editor") && address != nint.Zero)
+            MemoryUI.AddPopoutMemoryEditor(address);
     }
 
     private static void DrawHookTest()

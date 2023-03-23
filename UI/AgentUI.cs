@@ -67,7 +67,7 @@ public static unsafe class AgentUI
         {
             var id = GetAgentID(agent);
             ImGui.TextUnformatted($"[#{id}] {(AgentId)id}");
-            MemoryUI.DrawMemoryDetailsChild("AgentMemoryDetails", agent, 0x500);
+            MemoryUI.DrawMemoryEditorChild(agent, 0x400, true);
         }
         else
         {
@@ -103,7 +103,7 @@ public static unsafe class AgentUI
         ImGui.SameLine();
 
         var selectedAgent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(selectedAgentID.Value);
-        MemoryUI.DrawMemoryDetailsChild("AgentMemoryDetails", selectedAgent, 0x500);
+        MemoryUI.DrawMemoryEditorChild(selectedAgent, 0x400, true);
     }
 
     private static uint GetAgentID(nint address)

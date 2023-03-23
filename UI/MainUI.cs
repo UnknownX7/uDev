@@ -31,7 +31,7 @@ public static class MainUI
 
     public static void Draw()
     {
-        MemoryUI.DrawMemoryViews();
+        MemoryUI.DrawMemoryEditors();
 
         if (!isVisible) return;
 
@@ -96,7 +96,7 @@ public static class MainUI
             {
                 unsafe
                 {
-                    MemoryUI.DrawMemoryDetailsChild("ImGuiMemoryView", ImGuiEx.GetCurrentWindow(), 0x5000);
+                    MemoryUI.DrawMemoryEditorChild(ImGuiEx.GetCurrentWindow(), 0x2000, true);
                 }
                 ImGui.EndTabItem();
             }
@@ -247,7 +247,7 @@ public static class MainUI
 
         if (memberDetails.Length > 0 && ImGui.BeginTabItem("Memory Details"))
         {
-            MemoryUI.DrawMemoryDetailsChild("MemoryDetails", memberDetails.Address, memberDetails.Length);
+            MemoryUI.DrawMemoryEditorChild(memberDetails.Address, memberDetails.Length);
             ImGui.EndTabItem();
         }
 
