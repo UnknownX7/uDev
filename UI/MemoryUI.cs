@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
@@ -16,7 +17,8 @@ public static unsafe class MemoryUI
         public bool DrawnThisFrame { get; set; }
 
         private readonly bool allowExpanding;
-        private long editingPosition;
+        private long editingPosition = -1;
+        private bool setFocus = false;
 
         public MemoryEditor(nint address, long size, bool expand)
         {
@@ -28,9 +30,37 @@ public static unsafe class MemoryUI
         public void Draw()
         {
             const int columns = 16;
+
             using var _ = ImGuiEx.FontBlock.Begin(UiBuilder.MonoFont);
+            using var __ = ImGuiEx.StyleVarBlock.Begin(ImGuiStyleVar.FramePadding, new Vector2(0));
+            using var ___ = ImGuiEx.StyleVarBlock.Begin(ImGuiStyleVar.ItemSpacing, new Vector2(4));
 
             DrawnThisFrame = true;
+
+            var startingEditingRow = editingPosition / columns;
+            if (editingPosition >= 0)
+            {
+                if (ImGui.IsKeyPressed(ImGuiKey.UpArrow) && editingPosition >= columns)
+                {
+                    editingPosition -= columns;
+                    setFocus = true;
+                }
+                else if (ImGui.IsKeyPressed(ImGuiKey.DownArrow) && editingPosition < Size - columns)
+                {
+                    editingPosition += columns;
+                    setFocus = true;
+                }
+                else if (ImGui.IsKeyPressed(ImGuiKey.LeftArrow) && editingPosition > 0)
+                {
+                    editingPosition--;
+                    setFocus = true;
+                }
+                else if (ImGui.IsKeyPressed(ImGuiKey.RightArrow) && editingPosition < Size - 1)
+                {
+                    editingPosition++;
+                    setFocus = true;
+                }
+            }
 
             HashSet<nint> readable = null;
             using var clipper = new ImGuiEx.ListClipper((int)Size, columns);
@@ -40,14 +70,13 @@ public static unsafe class MemoryUI
                     readable = Debug.GetReadableMemory(Address + i, Math.Min((clipper.DisplayEnd - clipper.DisplayStart + 1) * columns, Size - i));
 
                 var lineAddr = Address + i;
-                var color = lineAddr switch
+                ImGuiEx.TextCopyable(lineAddr switch
                 {
                     _ when lineAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
                     _ when lineAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
                     _ => new Vector4(0.6f, 0.6f, 0.7f, 1)
-                };
+                }, lineAddr.ToString("X"));
 
-                ImGuiEx.TextCopyable(color, lineAddr.ToString("X"));
                 ImGui.SameLine();
 
                 var str = string.Empty;
@@ -61,26 +90,74 @@ public static unsafe class MemoryUI
                     {
                         var b = *ptr;
 
-                        // It works I guess...
-                        var maxLength = ptrAddr switch
+                        if (pos == editingPosition)
                         {
-                            _ when readable.Contains(ptrAddr + 8) => 8,
-                            _ when readable.Contains(ptrAddr + 4) => 4,
-                            _ when readable.Contains(ptrAddr + 2) => 2,
-                            _ => 1
-                        };
+                            var input = b.ToString("X2");
+                            var cursorPos = -1;
 
-                        ImGui.TextColored(b != 0 ? Vector4.One : new Vector4(0.5f, 0.5f, 0.5f, 1), b.ToString("X2"));
+                            using (ImGuiEx.ItemWidthBlock.Begin(ImGui.CalcTextSize("  ").X))
+                            {
+                                if (ImGui.InputText($"##{pos}", ref input, 2,
+                                    ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase | ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.CallbackEdit | ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AlwaysOverwrite,
+                                    data =>
+                                    {
+                                        if (data->SelectionStart == data->SelectionEnd)
+                                            *(int*)data->UserData = data->CursorPos;
+                                        return 0;
+                                    }, (nint)(&cursorPos)) || cursorPos >= 2)
+                                {
+                                    SafeMemory.Write(ptrAddr, byte.Parse(input, NumberStyles.HexNumber));
+                                    editingPosition++;
+                                    setFocus = true;
+                                }
+                                else if (cursorPos == 0 && ImGui.IsKeyPressed(ImGuiKey.Backspace))
+                                {
+                                    SafeMemory.Write<byte>(ptrAddr, 0);
+                                    editingPosition--;
+                                    setFocus = true;
+                                }
+                                else if (!setFocus && !ImGui.IsItemActive())
+                                {
+                                    editingPosition = -1;
+                                }
+                            }
 
-                        if (maxLength >= 8 && ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
-                        {
-                            var a = *(nint*)ptr;
-                            if (Debug.CanReadMemory(a))
-                                AddPopoutMemoryEditor(a);
+                            if (setFocus && pos == editingPosition)
+                            {
+                                ImGui.SetKeyboardFocusHere(-1);
+                                setFocus = false;
+                            }
                         }
+                        else
+                        {
+                            // It works I guess...
+                            var maxLength = ptrAddr switch
+                            {
+                                _ when readable.Contains(ptrAddr + 8) => 8,
+                                _ when readable.Contains(ptrAddr + 4) => 4,
+                                _ when readable.Contains(ptrAddr + 2) => 2,
+                                _ => 1
+                            };
 
-                        if (ImGui.IsItemHovered())
-                            ImGui.SetTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+                            ImGui.TextColored(b != 0 ? Vector4.One : new Vector4(0.5f, 0.5f, 0.5f, 1), b.ToString("X2"));
+
+                            if (ImGui.IsItemHovered())
+                            {
+                                ImGui.SetTooltip($"0x{pos:X}\n{GetPointerTooltip(ptr, maxLength)}");
+
+                                if (ImGui.IsMouseReleased(ImGuiMouseButton.Left))
+                                {
+                                    editingPosition = pos;
+                                    setFocus = true;
+                                }
+                                else if (maxLength >= 8 && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+                                {
+                                    var a = *(nint*)ptr;
+                                    if (Debug.CanReadMemory(a))
+                                        AddPopoutMemoryEditor(a);
+                                }
+                            }
+                        }
 
                         if (b > 31)
                             str += (char)b;
@@ -103,7 +180,20 @@ public static unsafe class MemoryUI
                 ImGui.TextUnformatted($" {str}");
             }
 
-            if (allowExpanding && ImGui.GetScrollY() == ImGui.GetScrollMaxY())
+            if (editingPosition >= Size || !ImGui.IsWindowFocused())
+            {
+                editingPosition = -1;
+                setFocus = false;
+            }
+            else if (editingPosition >= 0 && startingEditingRow >= 0)
+            {
+                var editingRow = editingPosition / columns;
+                var delta = editingRow - startingEditingRow;
+                if ((delta < 0 && editingRow < clipper.FirstRow) || (delta > 0 && editingRow > clipper.LastRow))
+                    ImGui.SetScrollY(ImGui.GetScrollY() + delta * ImGui.GetFrameHeightWithSpacing());
+            }
+
+            if (allowExpanding && (ImGui.GetScrollY() == ImGui.GetScrollMaxY() || editingPosition >= Size - columns))
                 Size += 0x200;
         }
 
@@ -117,7 +207,7 @@ public static unsafe class MemoryUI
         public void DrawAsWindow()
         {
             var visible = true;
-            ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(700, 500));
+            ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(600, 500));
             ImGui.Begin($"Memory Details {Address:X}##Window", ref visible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
             Draw();
             ImGui.End();
