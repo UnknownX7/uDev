@@ -30,10 +30,6 @@ public static unsafe class ExdUI
 
     public static void Draw()
     {
-        var sheetPtr = GetSheetPointer(selectedSheet);
-        var rowSize = *(uint*)((nint)sheetPtr + 0x3C);
-        var maxRow = sheetPtr->RowCount;
-
         var width = 250 * ImGuiHelpers.GlobalScale;
         ImGui.BeginGroup();
         ImGui.SetNextItemWidth(width);
@@ -55,15 +51,20 @@ public static unsafe class ExdUI
 
         ImGui.SameLine();
 
+        var sheetPtr = GetSheetPointer(selectedSheet);
+        var maxRow = sheetPtr->RowCount;
+        var strPos = *(uint*)((nint)sheetPtr + 0x38);
+        var rowSize = *(uint*)((nint)sheetPtr + 0x3C);
+
         using var __ = ImGuiEx.GroupBlock.Begin();
         ImGui.BeginChild("SheetMemoryDetails", new Vector2(0, ImGui.GetContentRegionAvail().Y / 2), true);
         MemoryUI.DrawMemoryEditor(sheetPtr, sizeof(ExcelSheet));
         ImGui.EndChild();
 
         ImGui.SetNextItemWidth(250 * ImGuiHelpers.GlobalScale);
-        var row = (int)selectedRow;
-        if (ImGui.InputInt($"Row (Max: {maxRow - 1})", ref row, 1, (int)(maxRow - 1) / 10))
-            selectedRow = (uint)Math.Min(Math.Max(row, 0), maxRow - 1);
+        var rowID = (int)selectedRow;
+        if (ImGui.InputInt($"Row (Max: {maxRow - 1})", ref rowID, 1, (int)(maxRow - 1) / 10))
+            selectedRow = (uint)Math.Min(Math.Max(rowID, 0), maxRow - 1);
 
         var rowPtr = GetSheetRowPointer(selectedSheet, selectedRow);
         if (rowPtr == null)
@@ -72,7 +73,14 @@ public static unsafe class ExdUI
             return;
         }
 
-        MemoryUI.DrawMemoryEditorChild(*(void**)rowPtr, rowSize);
+        var row = *(nint*)rowPtr;
+        if (strPos < rowSize)
+        {
+            rowSize = strPos;
+            while (*(byte*)(row + rowSize++) != 0) ;
+        }
+
+        MemoryUI.DrawMemoryEditorChild(row, rowSize);
     }
 
     private static ExcelSheet* GetSheetPointer(uint sheetID) => ExcelModule->GetSheetByIndex(sheetID);
