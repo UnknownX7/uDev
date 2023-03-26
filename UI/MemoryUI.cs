@@ -20,6 +20,7 @@ public static unsafe class MemoryUI
         private long editingPosition = -1;
         private bool setFocus = false;
         private bool typingMode = false;
+        private bool displayProcessModuleOffset = false;
 
         public MemoryEditor(nint address, long size, bool expand)
         {
@@ -80,7 +81,9 @@ public static unsafe class MemoryUI
                     _ when lineAddr >= DalamudApi.SigScanner.BaseRDataAddress => new Vector4(0.5f, 1, 0.5f, 1),
                     _ when lineAddr >= DalamudApi.SigScanner.BaseTextAddress => new Vector4(1, 1, 0.5f, 1),
                     _ => new Vector4(0.6f, 0.6f, 0.7f, 1)
-                }, lineAddr.ToString("X"));
+                }, displayProcessModuleOffset && lineAddr >= DalamudApi.SigScanner.BaseAddress ? $"+{lineAddr - DalamudApi.SigScanner.BaseAddress:X11}" : lineAddr.ToString("X"));
+                if (ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
+                    displayProcessModuleOffset ^= true;
 
                 ImGui.SameLine();
 
