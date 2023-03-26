@@ -19,6 +19,7 @@ public static unsafe class MemoryUI
         private readonly bool allowExpanding;
         private long editingPosition = -1;
         private bool setFocus = false;
+        private bool typingMode = false;
 
         public MemoryEditor(nint address, long size, bool expand)
         {
@@ -37,6 +38,7 @@ public static unsafe class MemoryUI
 
             DrawnThisFrame = true;
 
+            var startingEditingPosition = editingPosition;
             var startingEditingRow = editingPosition / columns;
             if (editingPosition >= 0)
             {
@@ -60,6 +62,9 @@ public static unsafe class MemoryUI
                     editingPosition++;
                     setFocus = true;
                 }
+
+                if (ImGui.IsKeyPressed(ImGuiKey.ModAlt, false))
+                    typingMode ^= true;
             }
 
             HashSet<nint> readable = null;
@@ -97,16 +102,28 @@ public static unsafe class MemoryUI
 
                             using (ImGuiEx.ItemWidthBlock.Begin(ImGui.CalcTextSize("  ").X))
                             {
-                                if (ImGui.InputText($"##{pos}", ref input, 2,
-                                    ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase | ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.CallbackEdit | ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AlwaysOverwrite,
+                                var flags = ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.CallbackEdit | ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AlwaysOverwrite;
+                                byte inputByte = 0;
+
+                                if (!typingMode)
+                                    flags |= ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase;
+
+                                if (ImGui.InputText($"##{pos}", ref input, 2, flags,
                                     data =>
                                     {
-                                        if (data->SelectionStart == data->SelectionEnd)
+                                        if (typingMode && data->BufTextLen > 0)
+                                        {
+                                            inputByte = *data->Buf;
+                                            *(int*)data->UserData = 2;
+                                        }
+                                        else if (data->SelectionStart == data->SelectionEnd)
+                                        {
                                             *(int*)data->UserData = data->CursorPos;
+                                        }
                                         return 0;
                                     }, (nint)(&cursorPos)) || cursorPos >= 2)
                                 {
-                                    SafeMemory.Write(ptrAddr, byte.Parse(input, NumberStyles.HexNumber));
+                                    SafeMemory.Write(ptrAddr, typingMode ? inputByte : byte.Parse(input, NumberStyles.HexNumber));
                                     editingPosition++;
                                     setFocus = true;
                                 }
@@ -119,8 +136,12 @@ public static unsafe class MemoryUI
                                 else if (!setFocus && !ImGui.IsItemActive())
                                 {
                                     editingPosition = -1;
+                                    typingMode = false;
                                 }
                             }
+
+                            if (typingMode)
+                                ImGui.GetWindowDrawList().AddRect(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0xFF00FF00);
 
                             if (setFocus && pos == editingPosition)
                             {
@@ -180,10 +201,11 @@ public static unsafe class MemoryUI
                 ImGui.TextUnformatted($" {str}");
             }
 
-            if (editingPosition >= Size || !ImGui.IsWindowFocused())
+            if ((editingPosition >= Size && editingPosition == startingEditingPosition) || !ImGui.IsWindowFocused())
             {
                 editingPosition = -1;
                 setFocus = false;
+                typingMode = false;
             }
             else if (editingPosition >= 0 && startingEditingRow >= 0)
             {
@@ -276,7 +298,13 @@ public static unsafe class MemoryUI
 
     private static MemoryEditor GetMemoryEditor(nint address, long length, bool allowExpanding)
     {
-        if (inlineEditors.TryGetValue(address, out var editor)) return editor;
+        if (inlineEditors.TryGetValue(address, out var editor))
+        {
+            if (!allowExpanding)
+                editor.Size = length;
+            return editor;
+        }
+
         editor = new MemoryEditor(address, length, allowExpanding);
         inlineEditors[address] = editor;
         return editor;
