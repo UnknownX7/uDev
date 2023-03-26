@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Component.Excel;
@@ -10,7 +11,23 @@ namespace uDev.UI;
 
 public static unsafe class ExdUI
 {
+    [StructLayout(LayoutKind.Explicit)]
+    private struct ExcelSheet
+    {
+        [FieldOffset(0x0)] public FFXIVClientStructs.FFXIV.Component.Excel.ExcelSheet CS;
+        [FieldOffset(0x38)] public uint stringOffset;
+        [FieldOffset(0x3C)] public uint rowSize;
+        [FieldOffset(0xC8)] private byte hasSubrows;
+        [FieldOffset(0xD4)] private byte usesIDs;
+
+        public string Name => ((nint)CS.SheetName).ReadCString();
+        public bool HasSubrows => hasSubrows != 0;
+        public bool UsesIDs => usesIDs != 0;
+    }
+
     private static readonly uint maxSheetID = 1000u;
+    private static readonly delegate* unmanaged<ExdModule*, uint, uint, void*> GetRowBySheetIndexAndRowId;
+    //private static readonly delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*> GetRowBySheetIndexAndRowIdAndSubRowId;
     private static uint selectedSheet;
     private static uint selectedRow;
     private static string search = string.Empty;
@@ -26,6 +43,11 @@ public static unsafe class ExdUI
             if (sheet != null && (!Debug.CanReadMemory(sheet) || !Debug.CanReadMemory(sheet->SheetName))) break;
             maxSheetID++;
         }
+
+        if (DalamudApi.SigScanner.TryScanText("E8 ?? ?? ?? ?? EB 11 33 C0", out var ptr))
+            GetRowBySheetIndexAndRowId = (delegate* unmanaged<ExdModule*, uint, uint, void*>)ptr;
+        //if (DalamudApi.SigScanner.TryScanText("E8 ?? ?? ?? ?? 48 85 C0 74 46 48 8B 18", out ptr))
+        //    GetRowBySheetIndexAndRowIdAndSubRowId = (delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*>)ptr;
     }
 
     public static void Draw()
@@ -38,11 +60,13 @@ public static unsafe class ExdUI
         for (uint i = 0; i < maxSheetID; i++)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
-            var sheet = ExcelModule->GetSheetByIndex(i);
+            var sheet = GetSheetPointer(i);
             if (sheet == null) continue;
 
-            var name = $"[#{i}] {((nint)sheet->SheetName).ReadCString()}";
-            if (!name.Contains(search, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, i == selectedSheet)) continue;
+            var name = $"[#{i}] {sheet->Name}";
+            if (sheet->HasSubrows || GetSheetRowPointer(i, 0, sheet->UsesIDs) == null)
+                name += '*';
+            if (!name.Contains(search, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable($"{name}###Sheet", i == selectedSheet)) continue;
             selectedSheet = i;
             selectedRow = 0;
         }
@@ -52,9 +76,9 @@ public static unsafe class ExdUI
         ImGui.SameLine();
 
         var sheetPtr = GetSheetPointer(selectedSheet);
-        var maxRow = sheetPtr->RowCount;
-        var strPos = *(uint*)((nint)sheetPtr + 0x38);
-        var rowSize = *(uint*)((nint)sheetPtr + 0x3C);
+        var maxRow = sheetPtr->CS.RowCount;
+        var stringOffset = sheetPtr->stringOffset;
+        var rowSize = sheetPtr->rowSize;
 
         using var __ = ImGuiEx.GroupBlock.Begin();
         ImGui.BeginChild("SheetMemoryDetails", new Vector2(0, ImGui.GetContentRegionAvail().Y / 2), true);
@@ -63,27 +87,26 @@ public static unsafe class ExdUI
 
         ImGui.SetNextItemWidth(250 * ImGuiHelpers.GlobalScale);
         var rowID = (int)selectedRow;
-        if (ImGui.InputInt($"Row (Max: {maxRow - 1})", ref rowID, 1, (int)(maxRow - 1) / 10))
-            selectedRow = (uint)Math.Min(Math.Max(rowID, 0), maxRow - 1);
+        if (ImGui.InputInt($"Row (Count: {maxRow})", ref rowID, 1, (int)(maxRow - 1) / 10))
+            selectedRow = (uint)Math.Max(rowID, 0);
 
-        var rowPtr = GetSheetRowPointer(selectedSheet, selectedRow);
+        var rowPtr = !sheetPtr->HasSubrows ? GetSheetRowPointer(selectedSheet, selectedRow, sheetPtr->UsesIDs) : null;
         if (rowPtr == null)
         {
-            ImGui.TextUnformatted("Sheet not found!");
+            ImGui.TextUnformatted("Row not found!");
             return;
         }
 
         var row = *(nint*)rowPtr;
-        if (strPos < rowSize)
+        if (stringOffset < rowSize)
         {
-            rowSize = strPos;
+            rowSize = stringOffset;
             while (*(byte*)(row + rowSize++) != 0) ;
         }
 
         MemoryUI.DrawMemoryEditorChild(row, rowSize);
     }
 
-    private static ExcelSheet* GetSheetPointer(uint sheetID) => ExcelModule->GetSheetByIndex(sheetID);
-
-    private static void* GetSheetRowPointer(uint sheetID, uint row) => ExdModule->GetEntryByIndex(sheetID, row);
+    private static ExcelSheet* GetSheetPointer(uint sheetID) => (ExcelSheet*)ExcelModule->GetSheetByIndex(sheetID);
+    private static void* GetSheetRowPointer(uint sheetID, uint row, bool useId) => useId ? GetRowBySheetIndexAndRowId(ExdModule, sheetID, row) : ExdModule->GetEntryByIndex(sheetID, row);
 }
