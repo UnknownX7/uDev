@@ -86,6 +86,8 @@ public static unsafe class MemoryUI
                     displayProcessModuleOffset ^= true;
 
                 ImGui.SameLine();
+                ImGui.Dummy(Vector2.Zero);
+                ImGui.SameLine();
 
                 var str = string.Empty;
                 foreach (var j in clipper.Columns)
