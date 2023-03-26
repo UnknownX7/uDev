@@ -12,7 +12,7 @@ namespace uDev.UI;
 
 public static class MainUI
 {
-    private static bool isVisible = true;
+    private static bool isVisible = false;
     private static HypostasisMemberDebugInfo selectedDebugInfo = null;
     private static Debug.PluginIPC selectedPlugin = null;
     private static readonly Dictionary<string, Debug.PluginIPC> plugins = new();
