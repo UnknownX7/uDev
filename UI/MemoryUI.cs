@@ -21,6 +21,7 @@ public static unsafe class MemoryUI
         private bool setFocus = false;
         private bool typingMode = false;
         private bool displayProcessModuleOffset = false;
+        private float windowWidth = 600;
 
         public MemoryEditor(nint address, long size, bool expand)
         {
@@ -68,6 +69,16 @@ public static unsafe class MemoryUI
                     typingMode ^= true;
             }
 
+            var style = ImGui.GetStyle();
+            var itemSpacingX = style.ItemSpacing.X;
+            var spaceX = ImGui.CalcTextSize(" ").X;
+            var bytesX = ImGui.CalcTextSize((Address + Size).ToString("X")).X + spaceX * 2 + itemSpacingX;
+            var stringX = bytesX + (Address % 8 == 0 ? 1 : 2) * (spaceX + itemSpacingX) + (spaceX * 2 + itemSpacingX) * columns;
+
+            if (ImGui.IsWindowAppearing())
+                windowWidth = stringX + spaceX * columns + style.ScrollbarSize + style.WindowPadding.X * 2;
+
+            var separators = new List<float>();
             HashSet<nint> readable = null;
             using var clipper = new ImGuiEx.ListClipper((int)Size, columns);
             foreach (var i in clipper.Rows)
@@ -85,9 +96,7 @@ public static unsafe class MemoryUI
                 if (ImGuiEx.IsItemReleased(ImGuiMouseButton.Right))
                     displayProcessModuleOffset ^= true;
 
-                ImGui.SameLine();
-                ImGui.Dummy(Vector2.Zero);
-                ImGui.SameLine();
+                ImGui.SameLine(bytesX);
 
                 var str = string.Empty;
                 foreach (var j in clipper.Columns)
@@ -198,12 +207,23 @@ public static unsafe class MemoryUI
 
                     ImGui.SameLine();
 
-                    if (j == columns - 1 || (j + 1) % 8 != 0) continue;
-                    ImGui.TextUnformatted("|");
+                    if ((ptrAddr + 1) % 8 != 0 || j == columns - 1 || pos == Size - 1) continue;
+
+                    ImGui.TextUnformatted(" ");
                     ImGui.SameLine();
+                    if (clipper.DisplayStart == 0)
+                        separators.Add(ImGui.GetCursorPosX() - itemSpacingX - spaceX / 2);
                 }
 
+                ImGui.SameLine(stringX);
                 ImGui.TextUnformatted($" {str}");
+            }
+
+            foreach (var separatorX in separators)
+            {
+                var windowPos = ImGui.GetWindowPos();
+                var x = separatorX - itemSpacingX / 2 + 1;
+                ImGui.GetWindowDrawList().AddLine(new Vector2(x, 0) + windowPos, new Vector2(x, ImGui.GetWindowHeight()) + windowPos, 0xFF505050, 2);
             }
 
             if ((editingPosition >= Size && editingPosition == startingEditingPosition) || !ImGui.IsWindowFocused())
@@ -234,7 +254,7 @@ public static unsafe class MemoryUI
         public void DrawAsWindow()
         {
             var visible = true;
-            ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(600, 500));
+            ImGui.SetNextWindowSize(ImGuiHelpers.ScaledVector2(windowWidth, 500));
             ImGui.Begin($"Memory Details {Address:X}##Window", ref visible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
             Draw();
             ImGui.End();
