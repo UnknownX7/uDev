@@ -3,7 +3,10 @@ name: Build and Update Repository
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
+
+permissions:
+  contents: write
 
 env:
   SOLUTION_NAME: uDev
