@@ -1,0 +1,79 @@
+name: Build and Update Repository
+
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  SOLUTION_NAME: uDev
+  INTERNAL_NAME: uDev
+  RELEASE_DIR: ./bin/Debug/uDev
+  BRANCH: master
+
+jobs:
+  deploy:
+    runs-on: [windows-2022]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.0.5
+
+      - name: Restore NuGet Packages
+        run: nuget restore ${{ env.SOLUTION_NAME }}.sln
+
+      - name: Download Dalamud
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -OutFile latest.zip
+          Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev\"
+
+      - name: Build
+        run: msbuild ${{ env.SOLUTION_NAME }}.sln /p:Configuration=Debug
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v2.2.1
+        with:
+          path: ${{ env.RELEASE_DIR }}/*
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.RELEASE_DIR }}/latest.zip
+          asset_name: latest.zip
+          asset_content_type: application/zip
+
+      - name: Update repo.json
+        run: |
+          $ver = '${{ github.ref }}' -replace 'refs/tags/v', ''
+          $content = get-content -path './repo.json'
+          $content = $content -replace '"AssemblyVersion": .+', "`"AssemblyVersion`": `"$ver`","
+          set-content -path './repo.json' -value $content
+
+      - uses: EndBug/add-and-commit@v7
+        with:
+          add: --all
+          author_name: GitHub Action
+          author_email: github-actions[bot]@users.noreply.github.com
+          branch: ${{ env.BRANCH }}
+          message: Update repo.json
