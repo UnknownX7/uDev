@@ -73,10 +73,9 @@ jobs:
           $content = $content -replace '"AssemblyVersion": .+', "`"AssemblyVersion`": `"$ver`","
           set-content -path './repo.json' -value $content
 
-      - uses: EndBug/add-and-commit@v7
+      - uses: EndBug/add-and-commit@v9
         with:
-          add: --all
+          add: ./repo.json
           author_name: GitHub Action
           author_email: github-actions[bot]@users.noreply.github.com
-          branch: ${{ env.BRANCH }}
           message: Update repo.json
