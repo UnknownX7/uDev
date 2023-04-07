@@ -1,18 +1,18 @@
-using Dalamud.Game.Text;
-using Dalamud.Hooking;
-using Dalamud.Interface;
-using Dalamud.Logging;
-using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
 using System.Reflection;
+using Dalamud.Game.Text;
+using Dalamud.Hooking;
+using Dalamud.Interface;
+using Dalamud.Logging;
+using ImGuiNET;
 
-namespace uDev.UI;
+namespace uDev.UI.Modules;
 
-public static class AddressUI
+public class AddressUI : PluginUIModule
 {
     private static readonly Dictionary<string, Type> typeDictionary = new()
     {
@@ -30,26 +30,29 @@ public static class AddressUI
         ["string"] = typeof(string)
     };
 
-    private static nint address = DalamudApi.SigScanner.BaseTextAddress;
-    public static string HexAddress
+    public override string MenuLabel => "Sig / Hook Test";
+    public override int MenuPriority => 5;
+
+    private nint address = DalamudApi.SigScanner.BaseTextAddress;
+    public string HexAddress
     {
         get => address.ToString("X");
         set => address = nint.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out var p) ? (p > uint.MaxValue ? p : p + DalamudApi.SigScanner.BaseAddress) : nint.Zero;
     }
 
-    private static string signature = string.Empty;
-    private static readonly string[] argTypes = typeDictionary.Select(kv => kv.Key).ToArray();
-    private static int ret = 6;
-    private static readonly int[] args = new int[20];
-    private static object hook;
-    private static bool logChat = false;
-    private static bool startEnabled = true;
+    private string signature = string.Empty;
+    private readonly string[] argTypes = typeDictionary.Select(kv => kv.Key).ToArray();
+    private int ret = 6;
+    private readonly int[] args = new int[20];
+    private object hook;
+    private bool logChat = false;
+    private bool startEnabled = true;
 
-    public static IDisposable Hook => hook as IDisposable;
+    public IDisposable Hook => hook as IDisposable;
 
-    static AddressUI() => args[0] = 8;
+    public AddressUI() => args[0] = 8;
 
-    public static void Draw()
+    public override void Draw()
     {
         DrawSignatureTest();
         ImGui.Spacing();
@@ -59,7 +62,7 @@ public static class AddressUI
         MemoryUI.DrawMemoryEditorChild(address, 0x200, true);
     }
 
-    private static void DrawSignatureTest()
+    private void DrawSignatureTest()
     {
         var _ = HexAddress;
         if (ImGui.InputText("Address", ref _, 16, ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase | ImGuiInputTextFlags.AutoSelectAll))
@@ -126,7 +129,7 @@ public static class AddressUI
             MemoryUI.AddPopoutMemoryEditor(address);
     }
 
-    private static void DrawHookTest()
+    private void DrawHookTest()
     {
         TypeCombo("##Return", ref ret);
         ImGui.SameLine();
@@ -221,7 +224,7 @@ public static class AddressUI
         }
     }
 
-    private static void TypeCombo(string label, ref int current)
+    private void TypeCombo(string label, ref int current)
     {
         using var _ = ImGuiEx.StyleVarBlock.Begin(ImGuiStyleVar.PopupBorderSize, 1);
         var preview = argTypes[current];
@@ -244,7 +247,7 @@ public static class AddressUI
     //      Log(ConcatParams(hasReturn, ...));
     //      return ret;
     // }
-    private static object CreateHook()
+    private object CreateHook()
     {
         var types = args.TakeWhile(id => id != 0).Select(id => typeDictionary[argTypes[id]]).ToList();
 
@@ -262,7 +265,7 @@ public static class AddressUI
         var ctor = hookType.GetConstructor(new[] { typeof(nint), hookDelegateType });
 
         var retVar = hasReturn ? Expression.Variable(retType, "ret") : null;
-        var hookField = Expression.Convert(Expression.Field(null, typeof(AddressUI).GetField(nameof(hook), BindingFlags.Static | BindingFlags.NonPublic)!), hookType);
+        var hookField = Expression.Convert(Expression.Field(null, typeof(AddressUI).GetField(nameof(hook), BindingFlags.Instance | BindingFlags.NonPublic)!), hookType);
         var getHookOriginal = Expression.Call(hookField, hookType.GetProperty(nameof(Hook<Action>.Original), BindingFlags.Instance | BindingFlags.Public)!.GetMethod!);
         var callHookOriginal = Expression.Invoke(getHookOriginal, paramExpressions);
         var assignRet = hasReturn ? Expression.Assign(retVar, callHookOriginal) : null;
@@ -271,16 +274,16 @@ public static class AddressUI
         if (hasReturn)
             objectArray = objectArray.Append(Expression.Convert(retVar, typeof(object)));
         var concatExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
-        var printExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Static | BindingFlags.NonPublic)!, concatExpression);
+        var printExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Instance | BindingFlags.NonPublic)!, concatExpression);
 
         var block = hasReturn ? Expression.Block(new[] { retVar }, assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
         return ctor?.Invoke(new object[] { address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
     }
-    private static void EnableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Enable))?.Invoke(hook, null);
+    private void EnableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Enable))?.Invoke(hook, null);
 
-    private static void DisableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Disable))?.Invoke(hook, null);
+    private void DisableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Disable))?.Invoke(hook, null);
 
-    private static void Log(string message)
+    private void Log(string message)
     {
         message = $"[HookTest] {message}";
         if (logChat)
@@ -307,4 +310,6 @@ public static class AddressUI
 
         return str;
     }
+
+    public override void Dispose() => Hook?.Dispose();
 }

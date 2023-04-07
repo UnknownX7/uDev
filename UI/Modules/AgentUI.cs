@@ -6,19 +6,22 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
 
-namespace uDev.UI;
+namespace uDev.UI.Modules;
 
-public static unsafe class AgentUI
+public unsafe class AgentUI : PluginUIModule
 {
-    private static ushort selectedAddonID;
-    private static uint? selectedAgentID;
-    private static string addonSearch = string.Empty;
-    private static string agentSearch = string.Empty;
+    public override string MenuLabel => "Addon Agents";
+    public override int MenuPriority => 15;
+
+    private ushort selectedAddonID;
+    private uint? selectedAgentID;
+    private string addonSearch = string.Empty;
+    private string agentSearch = string.Empty;
 
     private static RaptureAtkUnitManager* RaptureAtkUnitManager => &Common.UIModule->GetRaptureAtkModule()->RaptureAtkUnitManager;
     private static AtkUnitList* LoadedAddons => &RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
 
-    public static void Draw()
+    public override void Draw()
     {
         if (!ImGui.BeginTabBar("AgentUITabBar")) return;
 
@@ -37,7 +40,7 @@ public static unsafe class AgentUI
         ImGui.EndTabBar();
     }
 
-    private static void DrawAddonTab()
+    private void DrawAddonTab()
     {
         var width = 250 * ImGuiHelpers.GlobalScale;
         ImGui.BeginGroup();
@@ -77,7 +80,7 @@ public static unsafe class AgentUI
         ImGui.EndChild();
     }
 
-    private static void DrawAgentTab()
+    private void DrawAgentTab()
     {
         var width = 250 * ImGuiHelpers.GlobalScale;
         ImGui.BeginGroup();

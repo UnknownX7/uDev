@@ -7,9 +7,9 @@ using FFXIVClientStructs.FFXIV.Component.Excel;
 using FFXIVClientStructs.FFXIV.Component.Exd;
 using ImGuiNET;
 
-namespace uDev.UI;
+namespace uDev.UI.Modules;
 
-public static unsafe class ExdUI
+public unsafe class ExdUI : PluginUIModule
 {
     [StructLayout(LayoutKind.Explicit)]
     private struct ExcelSheet
@@ -25,12 +25,20 @@ public static unsafe class ExdUI
         public bool UsesIDs => usesIDs != 0;
     }
 
+    public override string MenuLabel => "Exd Module";
+    public override int MenuPriority => 11;
+
     private static readonly uint maxSheetID = 1000u;
-    private static readonly delegate* unmanaged<ExdModule*, uint, uint, void*> GetRowBySheetIndexAndRowId;
-    //private static readonly delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*> GetRowBySheetIndexAndRowIdAndSubRowId;
-    private static uint selectedSheet;
-    private static uint selectedRow;
-    private static string search = string.Empty;
+
+    [HypostasisSignatureInjection("E8 ?? ?? ?? ?? EB 11 33 C0", Required = true)]
+    private static delegate* unmanaged<ExdModule*, uint, uint, void*> GetRowBySheetIndexAndRowId;
+
+    //[HypostasisSignatureInjection("E8 ?? ?? ?? ?? 48 85 C0 74 46 48 8B 18", Required = true)]
+    //private static delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*> GetRowBySheetIndexAndRowIdAndSubRowId;
+
+    private uint selectedSheet;
+    private uint selectedRow;
+    private string search = string.Empty;
 
     private static ExdModule* ExdModule => Framework.Instance()->ExdModule;
     private static ExcelModule* ExcelModule => ExdModule->ExcelModule;
@@ -43,14 +51,9 @@ public static unsafe class ExdUI
             if (sheet != null && (!Debug.CanReadMemory(sheet) || !Debug.CanReadMemory(sheet->SheetName))) break;
             maxSheetID++;
         }
-
-        if (DalamudApi.SigScanner.TryScanText("E8 ?? ?? ?? ?? EB 11 33 C0", out var ptr))
-            GetRowBySheetIndexAndRowId = (delegate* unmanaged<ExdModule*, uint, uint, void*>)ptr;
-        //if (DalamudApi.SigScanner.TryScanText("E8 ?? ?? ?? ?? 48 85 C0 74 46 48 8B 18", out ptr))
-        //    GetRowBySheetIndexAndRowIdAndSubRowId = (delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*>)ptr;
     }
 
-    public static void Draw()
+    public override void Draw()
     {
         var width = 250 * ImGuiHelpers.GlobalScale;
         ImGui.BeginGroup();

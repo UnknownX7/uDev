@@ -30,6 +30,5 @@ public class uDev : DalamudPlugin<uDev>, IDalamudPlugin
     protected override void Dispose(bool disposing)
     {
         if (!disposing) return;
-        AddressUI.Hook?.Dispose();
     }
 }
