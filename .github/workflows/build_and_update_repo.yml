@@ -87,4 +87,5 @@ jobs:
         with:
           author_name: GitHub Action
           author_email: github-actions[bot]@users.noreply.github.com
+          new_branch: ${{ env.BRANCH }}
           message: Update repo.json
