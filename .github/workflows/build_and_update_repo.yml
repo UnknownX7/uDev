@@ -15,11 +15,12 @@ env:
   BRANCH: master
 
 jobs:
-  deploy:
+  build:
     runs-on: [windows-2022]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           submodules: true
 
@@ -66,9 +67,13 @@ jobs:
           asset_name: latest.zip
           asset_content_type: application/zip
 
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
+  deploy:
+    needs: build
+    runs-on: [windows-2022]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
       - name: Update repo.json
         run: |
@@ -77,9 +82,9 @@ jobs:
           $content = $content -replace '"AssemblyVersion": .+', "`"AssemblyVersion`": `"$ver`","
           set-content -path './repo.json' -value $content
 
-      - uses: EndBug/add-and-commit@v9
+      - name: Commit repo.json
+        uses: EndBug/add-and-commit@v9
         with:
-          add: ./repo.json
           author_name: GitHub Action
           author_email: github-actions[bot]@users.noreply.github.com
           message: Update repo.json
