@@ -19,6 +19,7 @@ public static class MainUI
     private static readonly List<PluginUIModule> uiModules = PluginModuleManager.PluginModules.OfType<PluginUIModule>().OrderBy(module => module.MenuPriority).ToList();
     private static Vector2 dummySize = ImGuiHelpers.ScaledVector2(21);
     private static Vector2 uiModuleListSize = dummySize;
+    private static bool openingMenu = false;
 
     public static void Draw()
     {
@@ -38,7 +39,6 @@ public static class MainUI
         ImGuiEx.AddDonationHeader();
 
         var prevCursorPos = ImGui.GetCursorPos();
-        var openMenu = false;
         if (uiModuleListSize.Y > dummySize.Y)
         {
             ImGui.Dummy(dummySize);
@@ -47,7 +47,7 @@ public static class MainUI
         {
             ImGuiEx.FontButton(FontAwesomeIcon.Bars.ToIconString(), UiBuilder.IconFont);
             if (ImGui.IsItemHovered())
-                openMenu = true;
+                openingMenu = true;
             dummySize = ImGui.GetItemRectSize();
         }
 
@@ -59,7 +59,7 @@ public static class MainUI
 
         ImGui.SetCursorPos(prevCursorPos);
 
-        if (uiModuleListSize.Y > dummySize.Y || openMenu)
+        if (uiModuleListSize.Y > dummySize.Y || openingMenu)
         {
             var style = ImGui.GetStyle();
             ImGui.BeginChild("UIModuleList", uiModuleListSize, true);
@@ -78,18 +78,22 @@ public static class MainUI
             var maxHeight = ImGui.GetCursorPosY() + style.ItemSpacing.Y;
             if (uiModuleListSize.Y == maxHeight)
             {
-                uiModuleListSize.X = ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)
-                    ? Math.Min(uiModuleListSize.X + (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * 1000 * ImGuiHelpers.GlobalScale, 200 * ImGuiHelpers.GlobalScale)
-                    : Math.Max(uiModuleListSize.X - (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * 1000 * ImGuiHelpers.GlobalScale, dummySize.X);
+                var speed = (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * 1500 * ImGuiHelpers.GlobalScale;
+                uiModuleListSize.X = openingMenu || ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)
+                    ? Math.Min(uiModuleListSize.X + speed, 200 * ImGuiHelpers.GlobalScale)
+                    : Math.Max(uiModuleListSize.X - speed, dummySize.X);
 
-                if (uiModuleListSize.X == dummySize.X)
+                if (openingMenu && uiModuleListSize.X == 200 * ImGuiHelpers.GlobalScale)
+                    openingMenu = false;
+                else if (uiModuleListSize.X == dummySize.X)
                     uiModuleListSize.Y = maxHeight - 1;
             }
             else
             {
-                uiModuleListSize.Y = openMenu || ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)
-                    ? Math.Min(uiModuleListSize.Y + (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * maxHeight * 8 * ImGuiHelpers.GlobalScale, maxHeight)
-                    : Math.Max(uiModuleListSize.Y - (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * maxHeight * 8 * ImGuiHelpers.GlobalScale, dummySize.Y);
+                var speed = (float)DalamudApi.Framework.UpdateDelta.TotalSeconds * maxHeight * 8;
+                uiModuleListSize.Y = openingMenu || ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)
+                    ? Math.Min(uiModuleListSize.Y + speed, maxHeight)
+                    : Math.Max(uiModuleListSize.Y - speed, dummySize.Y);
             }
 
             ImGui.EndChild();
