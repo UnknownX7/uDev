@@ -1,4 +1,3 @@
-using Dalamud.Game;
 using Dalamud.Plugin;
 using uDev.UI;
 
@@ -6,9 +5,9 @@ namespace uDev;
 
 #pragma warning disable IDE1006 // Naming Styles
 
-public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
+public class uDev : DalamudPlugin<Configuration>, IDalamudPlugin
 {
-    public override string Name => "uDev";
+    public string Name => "uDev";
 
     public uDev(DalamudPluginInterface pluginInterface) : base(pluginInterface) { }
 
@@ -23,7 +22,7 @@ public class uDev : DalamudPlugin<uDev, Configuration>, IDalamudPlugin
     [PluginCommand("/udev", HelpMessage = "Opens / closes the config.")]
     private void ToggleConfig(string command, string argument) => ToggleConfig();
 
-    protected override void Update(Framework framework) { }
+    //protected override void Update() { }
 
     protected override void Draw() => MainUI.Draw();
 

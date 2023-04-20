@@ -6,7 +6,7 @@ using ImGuiNET;
 
 namespace uDev.UI.Modules;
 
-public class HypostasisUI : PluginUIModule
+public class HypostasisPluginsUI : PluginUIModule
 {
     public override string MenuLabel => "Browse Hypostasis Plugins";
     public override int MenuPriority => 0;
