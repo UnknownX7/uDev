@@ -3,6 +3,7 @@ using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
 using ImGuiNET;
+using Hypostasis.Debug;
 
 namespace uDev.UI.Modules;
 
@@ -30,7 +31,7 @@ public class HypostasisPluginsUI : PluginUIModule
 
     private void DrawPluginList()
     {
-        if (!DalamudApi.PluginInterface.TryGetData<HashSet<string>>(Hypostasis.Debug.HypostasisTag, out var pluginNames)) return;
+        if (!DalamudApi.PluginInterface.TryGetData<HashSet<string>>(DebugIPC.HypostasisTag, out var pluginNames)) return;
 
         lock (pluginNames)
         {

@@ -1,4 +1,5 @@
 using Dalamud.Plugin;
+using Hypostasis.Debug;
 using uDev.UI;
 
 namespace uDev;
@@ -14,7 +15,7 @@ public class uDev : DalamudPlugin<Configuration>, IDalamudPlugin
     protected override void Initialize()
     {
         DalamudApi.SigScanner.Inject(typeof(Common));
-        Hypostasis.Debug.DebugHypostasis = true;
+        DebugIPC.DebugHypostasis = true;
     }
 
     protected override void ToggleConfig() => MainUI.IsVisible ^= true;
@@ -22,12 +23,5 @@ public class uDev : DalamudPlugin<Configuration>, IDalamudPlugin
     [PluginCommand("/udev", HelpMessage = "Opens / closes the config.")]
     private void ToggleConfig(string command, string argument) => ToggleConfig();
 
-    //protected override void Update() { }
-
     protected override void Draw() => MainUI.Draw();
-
-    protected override void Dispose(bool disposing)
-    {
-        if (!disposing) return;
-    }
 }

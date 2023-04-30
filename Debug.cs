@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
+using Hypostasis.Debug;
 using static Hypostasis.Util;
 
 namespace uDev;
