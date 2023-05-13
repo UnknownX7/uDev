@@ -265,7 +265,8 @@ public class AddressUI : PluginUIModule
         var ctor = hookType.GetConstructor(new[] { typeof(nint), hookDelegateType });
 
         var retVar = hasReturn ? Expression.Variable(retType, "ret") : null;
-        var hookField = Expression.Convert(Expression.Field(null, typeof(AddressUI).GetField(nameof(hook), BindingFlags.Instance | BindingFlags.NonPublic)!), hookType);
+        var thisConstant = Expression.Constant(this);
+        var hookField = Expression.Convert(Expression.Field(thisConstant, typeof(AddressUI).GetField(nameof(hook), BindingFlags.Instance | BindingFlags.NonPublic)!), hookType);
         var getHookOriginal = Expression.Call(hookField, hookType.GetProperty(nameof(Hook<Action>.Original), BindingFlags.Instance | BindingFlags.Public)!.GetMethod!);
         var callHookOriginal = Expression.Invoke(getHookOriginal, paramExpressions);
         var assignRet = hasReturn ? Expression.Assign(retVar, callHookOriginal) : null;
@@ -274,7 +275,7 @@ public class AddressUI : PluginUIModule
         if (hasReturn)
             objectArray = objectArray.Append(Expression.Convert(retVar, typeof(object)));
         var concatExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
-        var printExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Instance | BindingFlags.NonPublic)!, concatExpression);
+        var printExpression = Expression.Call(thisConstant, typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Instance | BindingFlags.NonPublic)!, concatExpression);
 
         var block = hasReturn ? Expression.Block(new[] { retVar }, assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
         return ctor?.Invoke(new object[] { address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
