@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Reflection;
 using Dalamud.Game.Text;
 using Dalamud.Hooking;
-using Dalamud.Interface;
+using Dalamud.Interface.Utility;
 using Dalamud.Logging;
 using ImGuiNET;
 
@@ -180,20 +180,13 @@ public class AddressUI : PluginUIModule
             }
         }
 
-        var valid = address.IsValidHookAddress();
-        if (!valid)
-            ImGui.BeginDisabled();
-
-        if (ImGui.Button("Create Hook"))
+        if (ImGui.Button($"Create Hook{(!address.IsValidHookAddress() ? " (UNSAFE)" : string.Empty)}"))
         {
             Hook?.Dispose();
             hook = CreateHook();
             if (startEnabled)
                 EnableHook();
         }
-
-        if (!valid)
-            ImGui.EndDisabled();
 
         ImGui.SameLine();
         ImGui.Button("Reset Delegate\uE051\uE051");
@@ -288,9 +281,9 @@ public class AddressUI : PluginUIModule
     {
         message = $"[HookTest] {message}";
         if (logChat)
-            DalamudApi.ChatGui.PrintChat(new() { Message = message, Type = XivChatType.Notice });
+            DalamudApi.ChatGui.Print(new() { Message = message, Type = XivChatType.Notice });
         else
-            PluginLog.Warning(message);
+            DalamudApi.PluginLog.Warning(message);
     }
 
     private static string ConcatParams(bool hasReturn, params object[] objects)

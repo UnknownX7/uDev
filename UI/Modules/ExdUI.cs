@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Dalamud.Interface;
+using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Component.Excel;
 using FFXIVClientStructs.FFXIV.Component.Exd;

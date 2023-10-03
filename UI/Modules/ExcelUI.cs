@@ -3,8 +3,8 @@ using System.Reflection;
 using System;
 using System.Linq;
 using System.Numerics;
-using Dalamud.Data;
-using Dalamud.Interface;
+using Dalamud.Interface.Utility;
+using Dalamud.Plugin.Services;
 using ImGuiNET;
 using Lumina.Excel;
 
@@ -85,7 +85,7 @@ public class ExcelSheetUI : PluginUIModule
 
         static IEnumerable<object> GetSheet(Type t)
         {
-            var methodInfo = typeof(DataManager).GetMethod(nameof(DataManager.GetExcelSheet), BindingFlags.Instance | BindingFlags.Public, Array.Empty<Type>())?.MakeGenericMethod(t);
+            var methodInfo = typeof(IDataManager).GetMethod(nameof(IDataManager.GetExcelSheet), BindingFlags.Instance | BindingFlags.Public, Array.Empty<Type>())?.MakeGenericMethod(t);
             return (IEnumerable<object>)methodInfo?.Invoke(DalamudApi.DataManager, null);
         }
 

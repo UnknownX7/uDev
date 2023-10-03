@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
+using Dalamud.Interface.Utility;
 using ImGuiNET;
 using Hypostasis.Debug;
 
@@ -10,7 +11,7 @@ namespace uDev.UI.Modules;
 public class HypostasisPluginsUI : PluginUIModule
 {
     public override string MenuLabel => "Browse Hypostasis Plugins";
-    public override int MenuPriority => 0;
+    public override int MenuPriority => 1;
 
     private HypostasisMemberDebugInfo selectedDebugInfo = null;
     private Debug.PluginIPC selectedPlugin = null;
