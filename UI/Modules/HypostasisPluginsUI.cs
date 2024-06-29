@@ -15,7 +15,7 @@ public class HypostasisPluginsUI : PluginUIModule
 
     private HypostasisMemberDebugInfo selectedDebugInfo = null;
     private Debug.PluginIPC selectedPlugin = null;
-    private readonly Dictionary<string, Debug.PluginIPC> plugins = new();
+    private readonly Dictionary<string, Debug.PluginIPC> plugins = [];
 
     public override void Draw()
     {

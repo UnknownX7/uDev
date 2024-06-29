@@ -65,7 +65,7 @@ public static partial class Debug
                             var count = (int)countInfo.GetValue();
                             ArrayLength = count;
                             for (int i = 0; i < count; i++)
-                                array.Add(p.GetValue(o, new object[] { i }));
+                                array.Add(p.GetValue(o, [ i ]));
                         }
                         catch { }
 
@@ -118,13 +118,13 @@ public static partial class Debug
         }
     }
 
-    public class PluginIPC //: IDisposable
+    public class PluginIPC(string name) //: IDisposable
     {
-        public string Name { get; }
-        private ICallGateSubscriber<IDalamudPlugin> GetPluginSubscriber { get; }
-        private ICallGateSubscriber<Hypostasis.Hypostasis.PluginState> GetPluginStateSubscriber { get; }
-        private ICallGateSubscriber<List<HypostasisMemberDebugInfo>> GetDebugInfosSubscriber { get; }
-        private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; }
+        public string Name { get; } = name;
+        private ICallGateSubscriber<IDalamudPlugin> GetPluginSubscriber { get; } = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPlugin");
+        private ICallGateSubscriber<Hypostasis.Hypostasis.PluginState> GetPluginStateSubscriber { get; } = DalamudApi.PluginInterface.GetIpcSubscriber<Hypostasis.Hypostasis.PluginState>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPluginState");
+        private ICallGateSubscriber<List<HypostasisMemberDebugInfo>> GetDebugInfosSubscriber { get; } = DalamudApi.PluginInterface.GetIpcSubscriber<List<HypostasisMemberDebugInfo>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetDebugInfos");
+        private ICallGateSubscriber<Dictionary<int, (object, MemberInfo)>> GetMemberInfosSubscriber { get; } = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetMemberInfos");
 
         public Assembly Assembly => Plugin is { } p ? Assembly.GetAssembly(p.GetType()) : null;
 
@@ -165,14 +165,6 @@ public static partial class Debug
             }
         }
 
-        public PluginIPC(string name)
-        {
-            Name = name;
-            GetPluginSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<IDalamudPlugin>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPlugin");
-            GetPluginStateSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Hypostasis.Hypostasis.PluginState>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetPluginState");
-            GetDebugInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<List<HypostasisMemberDebugInfo>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetDebugInfos");
-            GetMemberInfosSubscriber = DalamudApi.PluginInterface.GetIpcSubscriber<Dictionary<int, (object, MemberInfo)>>($"{name}.{nameof(Hypostasis.Hypostasis)}.GetMemberInfos");
-        }
         //public void Dispose() { }
     }
 

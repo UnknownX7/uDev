@@ -17,7 +17,7 @@ public static class MainUI
         set => isVisible = value;
     }
 
-    private static readonly List<PluginUIModule> uiModules = PluginModuleManager.PluginModules.OfType<PluginUIModule>().OrderBy(module => module.MenuPriority).ToList();
+    private static readonly List<PluginUIModule> uiModules = [ .. PluginModuleManager.PluginModules.OfType<PluginUIModule>().OrderBy(module => module.MenuPriority) ];
     private static Vector2 dummySize = ImGuiHelpers.ScaledVector2(21);
     private static Vector2 uiModuleListSize = dummySize;
     private static bool openingMenu = false;

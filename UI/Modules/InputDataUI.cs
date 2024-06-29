@@ -46,9 +46,8 @@ public unsafe class InputDataUI : PluginUIModule
 
         ImGui.SameLine();
 
-        var maxInputID = *(int*)((nint)Common.InputData + 0x9AC);
         ImGui.BeginChild("HeldInputIDs", new Vector2(50 * ImGuiHelpers.GlobalScale, 0), true);
-        for (uint i = 0; i < maxInputID; i++)
+        for (uint i = 0; i < Common.InputData->inputIDCount; i++)
         {
             if (Common.InputData->IsInputIDHeld(i) && ImGui.Selectable(i.ToString()))
                 inputID = (int)i;
@@ -64,7 +63,7 @@ public unsafe class InputDataUI : PluginUIModule
 
         ImGui.SetNextItemWidth(250 * ImGuiHelpers.GlobalScale);
         if (ImGui.InputInt("Input ID", ref inputID))
-            inputID = Math.Min(Math.Max(inputID, 0), maxInputID);
+            inputID = Math.Min(Math.Max(inputID, 0), Common.InputData->inputIDCount);
 
         MemoryUI.DrawMemoryEditorChild(Common.InputData->GetInputBinding((uint)inputID), 11);
     }

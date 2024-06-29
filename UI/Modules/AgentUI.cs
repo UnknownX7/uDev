@@ -50,11 +50,11 @@ public unsafe class AgentUI : PluginUIModule
         for (int i = 0; i < LoadedAddons->Count; i++)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
-            var addon = LoadedAddons->EntriesSpan[i];
+            var addon = LoadedAddons->Entries[i];
             using var __ = ImGuiEx.DisabledBlock.Begin(DalamudApi.GameGui.FindAgentInterface(addon) == nint.Zero);
-            var name = ((nint)addon.Value).ReadCString();
-            if (!name.Contains(addonSearch, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, addon.Value->ID == selectedAddonID)) continue;
-            selectedAddonID = addon.Value->ID;
+            var name = addon.Value->NameString;
+            if (!name.Contains(addonSearch, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, addon.Value->Id == selectedAddonID)) continue;
+            selectedAddonID = addon.Value->Id;
         }
         ImGui.EndChild();
         ImGui.EndGroup();
@@ -91,7 +91,7 @@ public unsafe class AgentUI : PluginUIModule
         while (true)
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
-            var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(i);
+            var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalId((AgentId)i);
             if (agent == null) break;
             var name = $"[#{i}] {(AgentId)i}";
             if (name.Contains(agentSearch, StringComparison.CurrentCultureIgnoreCase) && ImGui.Selectable(name, i == selectedAgentID))
@@ -105,7 +105,7 @@ public unsafe class AgentUI : PluginUIModule
 
         ImGui.SameLine();
 
-        var selectedAgent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(selectedAgentID.Value);
+        var selectedAgent = Common.UIModule->GetAgentModule()->GetAgentByInternalId((AgentId)selectedAgentID.Value);
         MemoryUI.DrawMemoryEditorChild(selectedAgent, 0x400, true);
     }
 
@@ -114,7 +114,7 @@ public unsafe class AgentUI : PluginUIModule
         var i = 0u;
         while (true)
         {
-            var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalID(i);
+            var agent = Common.UIModule->GetAgentModule()->GetAgentByInternalId((AgentId)i);
             if (agent == null) break;
             if ((nint)agent == address) return i;
             i++;

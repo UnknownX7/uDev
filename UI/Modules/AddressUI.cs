@@ -252,10 +252,10 @@ public class AddressUI : PluginUIModule
         if (!hasReturn && types.Count == 0) return null;
 
         types.Add(retType);
-        var hookDelegateType = DelegateTypeFactory.CreateDelegateType(types.ToArray());
+        var hookDelegateType = DelegateTypeFactory.CreateDelegateType([ .. types ]);
 
         var hookType = typeof(Hook<>).MakeGenericType(hookDelegateType);
-        var ctor = hookType.GetConstructor(new[] { typeof(nint), hookDelegateType });
+        var createHookFromAddress = hookType.GetMethod("FromAddress", BindingFlags.Static | BindingFlags.NonPublic);
 
         var retVar = hasReturn ? Expression.Variable(retType, "ret") : null;
         var thisConstant = Expression.Constant(this);
@@ -270,8 +270,8 @@ public class AddressUI : PluginUIModule
         var concatExpression = Expression.Call(typeof(AddressUI).GetMethod(nameof(ConcatParams), BindingFlags.Static | BindingFlags.NonPublic)!, Expression.Constant(hasReturn), Expression.NewArrayInit(typeof(object), objectArray));
         var printExpression = Expression.Call(thisConstant, typeof(AddressUI).GetMethod(nameof(Log), BindingFlags.Instance | BindingFlags.NonPublic)!, concatExpression);
 
-        var block = hasReturn ? Expression.Block(new[] { retVar }, assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
-        return ctor?.Invoke(new object[] { address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile() });
+        var block = hasReturn ? Expression.Block([ retVar ], assignRet, printExpression, retVar) : Expression.Block(printExpression, callHookOriginal);
+        return createHookFromAddress?.Invoke(null, [ address, Expression.Lambda(hookDelegateType, block, paramExpressions).Compile(), false ]);
     }
     private void EnableHook() => hook.GetType().GetMethod(nameof(Hook<Action>.Enable))?.Invoke(hook, null);
 

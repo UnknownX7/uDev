@@ -11,25 +11,17 @@ namespace uDev.UI;
 
 public static unsafe class MemoryUI
 {
-    private class MemoryEditor
+    private class MemoryEditor(nint address, long size, bool expand)
     {
-        public nint Address { get; }
-        public long Size { get; set; }
+        public nint Address { get; } = address;
+        public long Size { get; set; } = size;
         public bool DrawnThisFrame { get; set; }
 
-        private readonly bool allowExpanding;
         private long editingPosition = -1;
         private bool setFocus = false;
         private bool typingMode = false;
         private bool displayProcessModuleOffset = false;
         private float windowWidth = 600;
-
-        public MemoryEditor(nint address, long size, bool expand)
-        {
-            Address = address;
-            Size = size;
-            allowExpanding = expand;
-        }
 
         public void Draw()
         {
@@ -241,7 +233,7 @@ public static unsafe class MemoryUI
                     ImGui.SetScrollY(ImGui.GetScrollY() + delta * ImGui.GetFrameHeightWithSpacing());
             }
 
-            if (allowExpanding && (ImGui.GetScrollY() == ImGui.GetScrollMaxY() || editingPosition >= Size - columns))
+            if (expand && (ImGui.GetScrollY() == ImGui.GetScrollMaxY() || editingPosition >= Size - columns))
                 Size += 0x200;
         }
 
@@ -289,8 +281,8 @@ public static unsafe class MemoryUI
         }
     }
 
-    private static readonly List<MemoryEditor> popoutEditors = new();
-    private static readonly Dictionary<nint, MemoryEditor> inlineEditors = new();
+    private static readonly List<MemoryEditor> popoutEditors = [];
+    private static readonly Dictionary<nint, MemoryEditor> inlineEditors = [];
 
     public static void DrawMemoryEditors()
     {
@@ -308,7 +300,7 @@ public static unsafe class MemoryUI
             if (memoryEditor.DrawnThisFrame)
                 memoryEditor.DrawnThisFrame = false;
             else
-                (remove ??= new()).Add(address);
+                (remove ??= []).Add(address);
         }
 
         if (remove == null) return;

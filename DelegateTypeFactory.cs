@@ -20,7 +20,7 @@ public static class DelegateTypeFactory
         var builder = module.DefineType(GetUniqueName(), TypeAttributes.Sealed | TypeAttributes.Public, typeof(MulticastDelegate));
 
         var ctor = builder.DefineConstructor(MethodAttributes.RTSpecialName | MethodAttributes.HideBySig | MethodAttributes.Public,
-            CallingConventions.Standard, new[] { typeof(object), typeof(nint) });
+            CallingConventions.Standard, [ typeof(object), typeof(nint) ]);
         ctor.SetImplementationFlags(MethodImplAttributes.CodeTypeMask);
 
         var paramTypes = types.SkipLast(1).ToArray();

@@ -15,7 +15,7 @@ public class ExcelSheetUI : PluginUIModule
     public override string MenuLabel => "Excel Sheets";
     public override int MenuPriority => 10;
 
-    private static readonly Type[] luminaTypes = Assembly.Load("Lumina.Excel").GetTypes<ExcelRow>().ToArray();
+    private static readonly Type[] luminaTypes = Assembly.Load($"{nameof(Lumina)}.{nameof(Lumina.Excel)}").GetTypes<ExcelRow>().ToArray();
     private Type selectedLuminaType;
     private Type[] luminaTypeSearchCache = null;
     private string sheetSearch = string.Empty;
@@ -65,7 +65,7 @@ public class ExcelSheetUI : PluginUIModule
         if (selectedLuminaType == null) return;
         ImGui.SameLine();
         var methodInfo = typeof(ImGuiEx).GetMethod(nameof(ImGuiEx.ExcelSheetTable))?.MakeGenericMethod(selectedLuminaType);
-        methodInfo?.Invoke(null, new object[] { "ExcelSheetBrowser" });
+        methodInfo?.Invoke(null, [ "ExcelSheetBrowser" ]);
     }
 
     private static Type[] SearchAllSheets(string search)
@@ -85,7 +85,7 @@ public class ExcelSheetUI : PluginUIModule
 
         static IEnumerable<object> GetSheet(Type t)
         {
-            var methodInfo = typeof(IDataManager).GetMethod(nameof(IDataManager.GetExcelSheet), BindingFlags.Instance | BindingFlags.Public, Array.Empty<Type>())?.MakeGenericMethod(t);
+            var methodInfo = typeof(IDataManager).GetMethod(nameof(IDataManager.GetExcelSheet), BindingFlags.Instance | BindingFlags.Public, [])?.MakeGenericMethod(t);
             return (IEnumerable<object>)methodInfo?.Invoke(DalamudApi.DataManager, null);
         }
 

@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
-using FFXIVClientStructs.FFXIV.Component.Excel;
+using FFXIVClientStructs.FFXIV.Common.Component.Excel;
 using FFXIVClientStructs.FFXIV.Component.Exd;
 using ImGuiNET;
 
@@ -14,7 +14,7 @@ public unsafe class ExdUI : PluginUIModule
     [StructLayout(LayoutKind.Explicit)]
     private struct ExcelSheet
     {
-        [FieldOffset(0x0)] public FFXIVClientStructs.FFXIV.Component.Excel.ExcelSheet CS;
+        [FieldOffset(0x0)] public FFXIVClientStructs.FFXIV.Common.Component.Excel.ExcelSheet CS;
         [FieldOffset(0x38)] public uint stringOffset;
         [FieldOffset(0x3C)] public uint rowSize;
         [FieldOffset(0xC8)] private byte hasSubrows;
@@ -29,12 +29,6 @@ public unsafe class ExdUI : PluginUIModule
     public override int MenuPriority => 11;
 
     private static readonly uint maxSheetID = 1000u;
-
-    [HypostasisSignatureInjection("E8 ?? ?? ?? ?? EB 11 33 C0", Required = true)]
-    private static delegate* unmanaged<ExdModule*, uint, uint, void*> GetRowBySheetIndexAndRowId;
-
-    //[HypostasisSignatureInjection("E8 ?? ?? ?? ?? 48 85 C0 74 46 48 8B 18", Required = true)]
-    //private static delegate* unmanaged<ExdModule*, uint, uint, ushort, nint, nint, void*> GetRowBySheetIndexAndRowIdAndSubRowId;
 
     private uint selectedSheet;
     private uint selectedRow;
@@ -111,5 +105,5 @@ public unsafe class ExdUI : PluginUIModule
     }
 
     private static ExcelSheet* GetSheetPointer(uint sheetID) => (ExcelSheet*)ExcelModule->GetSheetByIndex(sheetID);
-    private static void* GetSheetRowPointer(uint sheetID, uint row, bool useId) => useId ? GetRowBySheetIndexAndRowId(ExdModule, sheetID, row) : ExdModule->GetEntryByIndex(sheetID, row);
+    private static void* GetSheetRowPointer(uint sheetID, uint row, bool useId) => useId ? ExdModule->GetRowBySheetIndexAndRowId(sheetID, row) : ExdModule->GetRowBySheetIndexAndRowIndex(sheetID, row);
 }
