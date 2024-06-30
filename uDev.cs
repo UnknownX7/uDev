@@ -6,7 +6,7 @@ namespace uDev;
 
 #pragma warning disable IDE1006 // Naming Styles
 
-public class uDev(DalamudPluginInterface pluginInterface) : DalamudPlugin<Configuration>(pluginInterface), IDalamudPlugin
+public class uDev(IDalamudPluginInterface pluginInterface) : DalamudPlugin<Configuration>(pluginInterface), IDalamudPlugin
 {
     public string Name => "uDev";
 
