@@ -1,5 +1,5 @@
 using System.Linq;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 
 namespace uDev.UI.Modules;
 
@@ -28,7 +28,7 @@ public class HypostasisUI : PluginUIModule
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"{Util.ConvertObjectToIntPtr(value):X}");
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{typeof(Common).GetMethod(nameof(Common.IsValid))!.MakeGenericMethod(propertyInfo.PropertyType.GetElementType()!).Invoke(null, new[] { value })}");
+            ImGui.TextUnformatted($"{typeof(Common).GetMethod(nameof(Common.IsValid))!.MakeGenericMethod(propertyInfo.PropertyType.GetElementType()!).Invoke(null, [ value ])}");
         }
 
         ImGui.EndTable();

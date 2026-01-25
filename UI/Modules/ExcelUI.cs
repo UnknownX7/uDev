@@ -3,9 +3,9 @@ using System.Reflection;
 using System;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin.Services;
-using ImGuiNET;
 using Lumina.Excel;
 
 namespace uDev.UI.Modules;
@@ -15,7 +15,7 @@ public class ExcelSheetUI : PluginUIModule
     public override string MenuLabel => "Excel Sheets";
     public override int MenuPriority => 10;
 
-    private static readonly Type[] luminaTypes = Assembly.Load($"{nameof(Lumina)}.{nameof(Lumina.Excel)}").GetTypes<ExcelRow>().ToArray();
+    private static readonly Type[] luminaTypes = Assembly.Load($"{nameof(Lumina)}.{nameof(Lumina.Excel)}").GetTypes().Where(t => t.Namespace == "Lumina.Excel.Sheets").ToArray();
     private Type selectedLuminaType;
     private Type[] luminaTypeSearchCache = null;
     private string sheetSearch = string.Empty;
@@ -72,7 +72,7 @@ public class ExcelSheetUI : PluginUIModule
     {
         static string GetObjectAsString(object o) => o switch
         {
-            ILazyRow lazyRow => $"{lazyRow.GetType().GenericTypeArguments[0].Name}#{lazyRow.Row}",
+            RowRef rowRef => $"{rowRef.GetType().GenericTypeArguments[0].Name}#{rowRef.RowId}",
             //Lumina.Text.SeString seString => seString.ToDalamudString().ToString(),
             _ => o?.ToString() ?? string.Empty
         };

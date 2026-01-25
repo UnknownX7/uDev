@@ -1,10 +1,10 @@
 using System;
 using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using ImGuiNET;
 
 namespace uDev.UI.Modules;
 
@@ -51,7 +51,7 @@ public unsafe class AgentUI : PluginUIModule
         {
             using var _ = ImGuiEx.IDBlock.Begin(i);
             var addon = LoadedAddons->Entries[i];
-            using var __ = ImGuiEx.DisabledBlock.Begin(DalamudApi.GameGui.FindAgentInterface(addon) == nint.Zero);
+            using var __ = ImGuiEx.DisabledBlock.Begin(DalamudApi.GameGui.FindAgentInterface(addon.Value).IsNull);
             var name = addon.Value->NameString;
             if (!name.Contains(addonSearch, StringComparison.CurrentCultureIgnoreCase) || !ImGui.Selectable(name, addon.Value->Id == selectedAddonID)) continue;
             selectedAddonID = addon.Value->Id;

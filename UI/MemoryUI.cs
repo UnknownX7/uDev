@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
-using ImGuiNET;
 
 namespace uDev.UI;
 
@@ -115,10 +115,10 @@ public static unsafe class MemoryUI
                                 if (!typingMode)
                                     flags |= ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase;
 
-                                if (ImGui.InputText($"##{pos}", ref input, 2, flags,
+                                if (false/*ImGui.InputText($"##{pos}", ref input, 2, flags,
                                     data =>
                                     {
-                                        if (typingMode && data->BufTextLen > 0)
+                                        if (typingMode && data.BufTextLen > 0)
                                         {
                                             inputByte = *data->Buf;
                                             *(int*)data->UserData = 2;
@@ -128,7 +128,7 @@ public static unsafe class MemoryUI
                                             *(int*)data->UserData = data->CursorPos;
                                         }
                                         return 0;
-                                    }, (nint)(&cursorPos)) || cursorPos >= 2)
+                                    }, (nint)(&cursorPos)) || cursorPos >= 2*/)
                                 {
                                     SafeMemory.Write(ptrAddr, typingMode ? inputByte : byte.Parse(input, NumberStyles.HexNumber));
                                     editingPosition++;

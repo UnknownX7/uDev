@@ -1,11 +1,11 @@
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Common.Component.Excel;
 using FFXIVClientStructs.FFXIV.Component.Exd;
-using ImGuiNET;
 
 namespace uDev.UI.Modules;
 
@@ -20,7 +20,7 @@ public unsafe class ExdUI : PluginUIModule
         [FieldOffset(0xC8)] private byte hasSubrows;
         [FieldOffset(0xD4)] private byte usesIDs;
 
-        public string Name => ((nint)CS.SheetName).ReadCString();
+        public string Name => ((nint)CS.SheetName.Value).ReadCString();
         public bool HasSubrows => hasSubrows != 0;
         public bool UsesIDs => usesIDs != 0;
     }

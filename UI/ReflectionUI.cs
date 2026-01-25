@@ -4,7 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 
 namespace uDev.UI;
 
