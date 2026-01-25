@@ -58,7 +58,7 @@ public static unsafe class MemoryUI
                     setFocus = true;
                 }
 
-                if (ImGui.IsKeyPressed(ImGuiKey.ModAlt, false))
+                if (ImGui.IsKeyReleased(ImGuiKey.ModAlt))
                     typingMode ^= true;
             }
 
@@ -115,20 +115,20 @@ public static unsafe class MemoryUI
                                 if (!typingMode)
                                     flags |= ImGuiInputTextFlags.CharsHexadecimal | ImGuiInputTextFlags.CharsUppercase;
 
-                                if (false/*ImGui.InputText($"##{pos}", ref input, 2, flags,
+                                if (ImGui.InputText($"##{pos}", ref input, 2, flags,
                                     data =>
                                     {
                                         if (typingMode && data.BufTextLen > 0)
                                         {
-                                            inputByte = *data->Buf;
-                                            *(int*)data->UserData = 2;
+                                            inputByte = *data.Buf;
+                                            cursorPos = 2;
                                         }
-                                        else if (data->SelectionStart == data->SelectionEnd)
+                                        else if (data.SelectionStart == data.SelectionEnd)
                                         {
-                                            *(int*)data->UserData = data->CursorPos;
+                                            cursorPos = data.CursorPos;
                                         }
                                         return 0;
-                                    }, (nint)(&cursorPos)) || cursorPos >= 2*/)
+                                    }) || cursorPos >= 2)
                                 {
                                     SafeMemory.Write(ptrAddr, typingMode ? inputByte : byte.Parse(input, NumberStyles.HexNumber));
                                     editingPosition++;
