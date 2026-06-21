@@ -73,7 +73,14 @@ public static partial class Debug
                     }
                     else
                     {
-                        Value = p.GetValue(o);
+                        try
+                        {
+                            Value = p.GetValue(o);
+                        }
+                        catch
+                        {
+                            Value = p.PropertyType.ToString();
+                        }
                     }
                     Type = p.PropertyType;
                     break;
