@@ -41,7 +41,7 @@ public unsafe class ExdUI : PluginUIModule
     {
         while (true)
         {
-            var sheet = ExcelModule->GetSheetByIndex(maxSheetID);
+            var sheet = ExcelModule->SheetsByIndex[maxSheetID];
             if (sheet != null && (!Debug.CanReadMemory(sheet) || !Debug.CanReadMemory(sheet->SheetName))) break;
             maxSheetID++;
         }
@@ -104,6 +104,6 @@ public unsafe class ExdUI : PluginUIModule
         MemoryUI.DrawMemoryEditorChild(row, rowSize);
     }
 
-    private static ExcelSheet* GetSheetPointer(uint sheetID) => (ExcelSheet*)ExcelModule->GetSheetByIndex(sheetID);
+    private static ExcelSheet* GetSheetPointer(uint sheetID) => (ExcelSheet*)ExcelModule->SheetsByIndex[sheetID];
     private static void* GetSheetRowPointer(uint sheetID, uint row, bool useId) => useId ? ExdModule->GetRowBySheetIndexAndRowId(sheetID, row) : ExdModule->GetRowBySheetIndexAndRowIndex(sheetID, row);
 }
